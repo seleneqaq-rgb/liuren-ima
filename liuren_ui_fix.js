@@ -1,403 +1,295 @@
 /**
- * 大六壬 V7 界面修复补丁
- * 
- * 修复1：神煞不显示 — ssCtx 缺失时从已有数据重建
- * 修复2：AI推演布局 — 移到卡片顶部、默认显示简报、可展开详情
+ * 大六壬 V7 界面修复补丁 V2 — Proxy拦截版
+ * 不用函数替换，用DOM后处理确保每次重绘都生效
  */
 
 (function() {
 
-    // ===== 辅助：安全 toast =====
+    // ===== 辅助 =====
     function safeToast(msg, isErr) {
         try { if (window.UI && window.UI.toast) window.UI.toast(msg, isErr); }
-        catch(e) { console.log('[UI补丁]', msg); }
+        catch(e) { console.log('[UI补丁V2]', msg); }
+    }
+
+    // ===== 工具：获取 STATE（兼容 const 声明不在 window 上） =====
+    function getState() {
+        if (typeof STATE !== 'undefined') return STATE;
+        if (window.STATE) return window.STATE;
+        return null;
     }
 
     // ==========================================
-    // 修复1：神煞引擎增强 — 从 Meta 重建 ssCtx
+    // 修复1：神煞 ssCtx 补全
     // ==========================================
+    function ensureSSCtx(data) {
+        if (!data || !data.Context) return;
+        if (data.Context.ssCtx) return;
+
+        const m = data.Meta || {};
+        const bz = m.BaZi || '';
+        const parts = bz.split(' ');
+        const DZ = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+        const nianZhi = (parts[0] && parts[0].length >= 3) ? (parts[0].charAt(2) || parts[0].charAt(3)) : '子';
+        const nianGan = (parts[0] && parts[0].length >= 1) ? parts[0].charAt(0) : '甲';
+
+        const SEASONS = ['寅','卯','辰','巳','午','未','申','酉','戌','亥','子','丑'];
+        const yj = (m.YueJiang || '子').replace('将','');
+        const yjIdx = DZ.indexOf(yj);
+        const seasonMap = {1:'寅月春',2:'卯月春',3:'辰月春',4:'巳月夏',5:'午月夏',6:'未月夏',
+                           7:'申月秋',8:'酉月秋',9:'戌月秋',10:'亥月冬',11:'子月冬',0:'丑月冬'};
+        const seasonStr = seasonMap[yjIdx + 1] || '寅月春';
+
+        const kw = m.KongWang ? m.KongWang.split('、').map(s=>s.trim()).filter(Boolean) : ['子','丑'];
+        const kwKey = kw.slice().sort().join('');
+        const KW_MAP = {'子丑':'丑','寅卯':'寅','辰巳':'辰','午未':'午','申酉':'申','戌亥':'戌'};
+        const xunShou = KW_MAP[kwKey] || '子';
+
+        data.Context.ssCtx = {
+            taiSui: nianZhi, nianGan, yueJian: yj,
+            riGan: data.Context.gan || '甲',
+            riZhi: data.Context.zhi || '子',
+            seasonStr, xunShou, kw, tShen: {}
+        };
+    }
+
     function patchShenSha() {
-        if (!window.SHENSHA || !window.UI || !window.UI.renderBoard) return;
+        if (!window.UI || typeof window.UI.renderBoard !== 'function') return;
 
-        const origRenderBoard = window.UI.renderBoard;
-
+        const orig = window.UI.renderBoard;
         window.UI.renderBoard = function(data) {
-            // 先确保 data.Context.ssCtx 存在
-            if (data && data.Context && !data.Context.ssCtx) {
-                const m = data.Meta || {};
-                const bz = m.BaZi || '';
-                const parts = bz.split(' ');
-                const nianGan = parts[0] ? parts[0].charAt(0) : '甲';
-                let taiSui = '';
-                try {
-                    // 从年柱推太岁：年支=太岁
-                    const DZ = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-                    const nianZhi = parts[0] ? parts[0].charAt(2) : '子';
-                    taiSui = DZ.includes(nianZhi) ? nianZhi : '子';
-                } catch(e) { taiSui = '子'; }
+            ensureSSCtx(data);
+            return orig.call(this, data);
+        };
 
-                const yueJian = m.YueJiang ? m.YueJiang.replace('将','') : '子';
-                const riGan = (data.Context && data.Context.gan) || '甲';
-                const riZhi = (data.Context && data.Context.zhi) || '子';
+        console.log('[UI补丁V2] ✅ 神煞修复已激活');
+    }
 
-                // 季节字符串
-                const SEASONS = ['寅','卯','辰','巳','午','未','申','酉','戌','亥','子','丑'];
-                const yjIdx = (typeof yueJian === 'string' ? SEASONS.indexOf(yueJian) : -1) + 1;
-                const seasonMap = {1:'寅月春',2:'卯月春',3:'辰月春',4:'巳月夏',5:'午月夏',6:'未月夏',7:'申月秋',8:'酉月秋',9:'戌月秋',10:'亥月冬',11:'子月冬',12:'丑月冬'};
-                const seasonStr = seasonMap[yjIdx] || '寅月春';
+    // ==========================================
+    // 修复2：DOM后处理 - 每次 renderHistoryList 后注入AI简报
+    // ==========================================
+    function postProcessHistoryList() {
+        const ls = document.getElementById('history_list');
+        if (!ls) return;
 
-                // 空亡
-                const kw = m.KongWang ? m.KongWang.split('、').map(s => s.trim()) : ['子','丑'];
+        const st = getState();
+        if (!st) return;
 
-                // 旬首
-                const KW_MAP = {
-                    '子丑':'丑','寅卯':'寅','辰巳':'辰','午未':'午','申酉':'申','戌亥':'戌'
-                };
-                const kwKey = kw.sort().join('');
-                const xunShou = KW_MAP[kwKey] || '子';
+        const cards = ls.querySelectorAll('.history-card');
+        cards.forEach(card => {
+            const id = card.dataset.id;
+            if (!id || card.querySelector('.v7-ai-brief')) return; // 已注入则跳过
 
-                data.Context.ssCtx = {
-                    taiSui, nianGan, yueJian, riGan, riZhi,
-                    seasonStr, xunShou, kw, tShen: {}
-                };
+            const r = (st.history || []).find(rec => String(rec.id) === String(id));
+            if (!r) return;
+
+            // 注入 AI简报 到卡片中（标题行后面）
+            const header = card.querySelector('.history-header') || 
+                          card.querySelector('.history-meta') ||
+                          card.childNodes[0];
+            if (!header) return;
+
+            const brief = buildAIBrief(r);
+            const briefDiv = document.createElement('div');
+            briefDiv.className = 'v7-ai-brief';
+            briefDiv.style.cssText = 'margin:6px 0; padding:6px 10px; background:#FFFBEB; border-radius:6px; border:1px solid #FDE68A; font-size:12px;';
+
+            const isOpen = st.openAiBoxIds && st.openAiBoxIds.has(String(id));
+
+            briefDiv.innerHTML = `
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                    <span style="font-weight:600;color:#1f2937;font-size:12px;">
+                        🤖 AI简报 ${brief.verdict ? '<span style="color:#92400e;font-size:11px;">'+brief.verdict+'</span>' : ''}
+                    </span>
+                    <button class="v7-ai-toggle-btn" style="font-size:10px;padding:3px 8px;background:${isOpen?'#8C2131':'#f3f4f6'};color:${isOpen?'white':'#4b5563'};border:1px solid #d1d5db;border-radius:4px;cursor:pointer;">
+                        ${isOpen ? '▲ 收起' : '▼ 展开详情'}
+                    </button>
+                </div>
+                ${brief.text ? '<div style="font-size:11px;color:#6b7280;margin-top:3px;line-height:1.4;">'+brief.text+'</div>' : 
+                  '<div style="font-size:11px;color:#9ca3af;font-style:italic;">尚未进行AI推演</div>'}
+            `;
+
+            // 插入到 header 之后
+            if (header.nextSibling) {
+                header.parentNode.insertBefore(briefDiv, header.nextSibling);
+            } else {
+                header.parentNode.appendChild(briefDiv);
             }
 
-            // 调用原版渲染
-            return origRenderBoard.call(window.UI, data);
-        };
-
-        console.log('[UI补丁] ✅ 神煞 ssCtx 自动修复已激活');
+            // 绑定展开按钮
+            const toggleBtn = briefDiv.querySelector('.v7-ai-toggle-btn');
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleAIDetail(card, id, r);
+                });
+            }
+        });
     }
 
-    // ==========================================
-    // 修复2：AI推演布局重构
-    // ==========================================
-    function patchAIBox() {
-        if (!window.UI || !window.UI.renderHistoryList) return;
+    // ===== 构建AI简报（纯文本） =====
+    function buildAIBrief(r) {
+        if (!r.aiResults) return { text: '', verdict: '' };
 
-        const origRenderHistoryList = window.UI.renderHistoryList;
-
-        window.UI.renderHistoryList = function() {
-            // 替换原版函数的前半部分逻辑
-            // 关键：修改卡片模板，AI移到顶部，默认显示简报
-
-            const ls = document.getElementById('history_list');
-            if (!ls) return;
-
-            const db = (typeof STATE !== 'undefined' ? STATE : window.STATE).history || [];
-
-            const catId = (typeof STATE !== 'undefined' ? STATE : window.STATE).filterCat || 'all';
-            const filtered = catId === 'all' ? db : db.filter(r => {
-                if (catId === 'macro_sports') return ['c_sport_basket','c_sport_soccer','c_sport_esport'].includes(r.catId);
-                return r.catId === catId;
-            });
-
-            (typeof STATE !== 'undefined' ? STATE : window.STATE).filteredHistory = filtered;
-
-            // 统计更新
-            if (window.UI.updateStats) window.UI.updateStats();
-
-            const categories = (typeof STATE !== 'undefined' ? STATE : window.STATE).categories || [];
-            const catOptionsHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-
-            ls.innerHTML = filtered.map(r => {
-                const cn = categories.find(c => c.id === r.catId)?.name || "未知";
-                const userCatHTML = catOptionsHTML.replace(`value="${r.catId}"`, `value="${r.catId}" selected`);
-                const domain = (typeof getDomainType === 'function') ? getDomainType(r.catId, r.matter) : 'general';
-                const isQuant = ['basket', 'soccer', 'esport', 'stock'].includes(domain);
-
-                let curSubTab = r.uiSubTab || 'LocalAI';
-                if (!isQuant && curSubTab === 'actual') curSubTab = 'LocalAI';
-
-                const matrixHTML = window.UI.generateMatrixHTML ? window.UI.generateMatrixHTML(r, curSubTab) : '';
-                const isRevOpen = (typeof STATE !== 'undefined' ? STATE : window.STATE).openReviewIds.has(r.id);
-                const isAIOpen = (typeof STATE !== 'undefined' ? STATE : window.STATE).openAiBoxIds.has(r.id);
-
-                // ===== AI推演摘要（默认显示） =====
-                const aiSummary = buildAISummary(r);
-                const aiDetailHTML = buildAIDetailHTML(r, isAIOpen);
-
-                const actualTabLabel = isQuant ? '🎯 实际复盘结果' : '🎯 最终事实';
-
-                return `
-                <div class="history-card" data-id="${r.id}">
-                    <!-- 标题行 -->
-                    <div class="history-header">
-                        <div class="history-title">${r.matter || '未定事项'}</div>
-                        <button class="btn-del" style="background:none; border:none; color:#9ca3af; font-size:16px; cursor:pointer;" title="删除">🗑️</button>
-                    </div>
-
-                    <!-- 元信息行 -->
-                    <div class="history-meta">
-                        <span style="background: #f3f4f6; padding: 2px 8px; border-radius: 4px; border: 1px solid #e5e7eb;">${cn.split(' ')[0] || cn}</span>
-                        <span>${r.time || ''}</span>
-                        <span>${r.bazi || ''}</span>
-                        <select class="cat-quick-select" style="font-size:11px; padding:2px 6px; border-radius:4px; border:1px solid #e5e7eb;" data-id="${r.id}">${userCatHTML}</select>
-                    </div>
-
-                    <!-- ⭐ AI推演简报（移到顶部，默认可见） -->
-                    <div style="margin-top: 8px; padding: 8px 12px; background: ${aiSummary.hasContent ? '#FFFBEB' : '#f9fafb'}; border-radius: 8px; border: 1px solid ${aiSummary.hasContent ? '#FDE68A' : '#e5e7eb'};">
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <div style="font-size: 13px; font-weight: 600; color: #1f2937;">
-                                🤖 AI推演简报
-                                ${aiSummary.hasContent ? `<span style="font-size:11px; color:#92400e; margin-left:8px;">${aiSummary.briefVerdict}</span>` : ''}
-                            </div>
-                            <button class="action-ai-toggle" data-id="${r.id}" 
-                                style="font-size: 11px; padding: 4px 10px; background: ${isAIOpen ? '#8C2131' : '#f3f4f6'}; 
-                                       color: ${isAIOpen ? 'white' : '#4b5563'}; border: 1px solid #e5e7eb; 
-                                       border-radius: 4px; cursor: pointer; font-weight: bold;">
-                                ${isAIOpen ? '▲ 收起详情' : '▼ 展开详情'}
-                            </button>
-                        </div>
-                        ${aiSummary.hasContent ? `
-                        <div style="font-size: 12px; color: #6b7280; margin-top: 4px; line-height: 1.5;">
-                            ${aiSummary.summaryText}
-                        </div>` : `
-                        <div style="font-size: 12px; color: #9ca3af; font-style: italic; margin-top: 4px;">
-                            尚未进行AI推演，点击下方按钮开始推演
-                        </div>`}
-                    </div>
-
-                    <!-- 分类切换标签 -->
-                    <div class="history-subtabs" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;">
-                        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                            <button class="match-btn ${curSubTab === 'LocalAI' ? 'active-match' : ''}" data-id="${r.id}" data-role="switch" data-val="LocalAI">📋 本地</button>
-                            <button class="match-btn ${curSubTab === 'DeepSeek' ? 'active-match' : ''}" data-id="${r.id}" data-role="switch" data-val="DeepSeek">🤖 DeepSeek</button>
-                            <button class="match-btn ${curSubTab === 'Qwen' ? 'active-match' : ''}" data-id="${r.id}" data-role="switch" data-val="Qwen">🤖 Qwen</button>
-                            <button class="match-btn ${curSubTab === 'Gemini' ? 'active-match' : ''}" data-id="${r.id}" data-role="switch" data-val="Gemini">🤖 Gemini</button>
-                            <button class="match-btn ${curSubTab === 'GLM' ? 'active-match' : ''}" data-id="${r.id}" data-role="switch" data-val="GLM">🤖 GLM</button>
-                            ${isQuant ? `<button class="match-btn ${curSubTab === 'actual' ? 'active-match' : ''}" data-id="${r.id}" data-role="switch" data-val="actual">${actualTabLabel}</button>` : ''}
-                        </div>
-                        <div class="matrix-container" style="display:flex; flex-direction:column; gap:8px;">${matrixHTML}</div>
-                    </div>
-
-                    <!-- 操作按钮行 -->
-                    <div class="history-actions" style="justify-content: space-between; margin-top: 8px; padding-top: 8px;">
-                        <button class="action-toggle-review" style="font-size: 12px; padding: 6px 12px; background: ${isRevOpen ? '#e5e7eb' : '#f3f4f6'}; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; font-weight: bold; color: #4b5563;" data-id="${r.id}">📝 宽幅复盘笔记</button>
-                    </div>
-
-                    <!-- 可展开的AI详细推演 -->
-                    <div id="history-ai-box-${r.id}" class="${isAIOpen ? '' : 'hidden'}" style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #d1d5db;">
-                        ${aiDetailHTML}
-                    </div>
-
-                    <!-- 复盘区域 -->
-                    <div id="history-review-box-${r.id}" class="${isRevOpen ? '' : 'hidden'}" style="margin-top: 12px;">
-                        <textarea id="history-review-text-${r.id}" style="width: 100%; min-height: 80px; padding: 8px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px;" placeholder="输入复盘笔记...">${r.review || ''}</textarea>
-                        <button class="btn-save-review" data-id="${r.id}" style="margin-top: 4px; font-size: 12px; padding: 4px 12px; background: #8C2131; color: white; border: none; border-radius: 4px; cursor: pointer;">保存复盘</button>
-                    </div>
-                </div>`;
-            }).join('');
-
-            // ===== 重新绑定事件 =====
-            bindHistoryEvents(ls);
-        };
-
-        console.log('[UI补丁] ✅ AI推演布局已重构');
-    }
-
-    // ===== 构建AI摘要 =====
-    function buildAISummary(r) {
-        if (!r.aiResults) return { hasContent: false, summaryText: '', briefVerdict: '' };
-
-        // 取第一个有内容的引擎
-        const engines = ['DeepSeek', 'Qwen', 'Gemini', 'GLM', 'LocalAI'];
-        let bestEngine = null;
         let bestText = '';
-
-        for (const eng of engines) {
+        let bestEng = '';
+        for (const eng of ['DeepSeek','Qwen','Gemini','GLM']) {
             const t = (r.aiResults[eng] && r.aiResults[eng].text) || '';
-            if (t.length > bestText.length) {
-                bestText = t;
-                bestEngine = eng;
-            }
+            if (t.length > bestText.length) { bestText = t; bestEng = eng; }
         }
 
-        if (!bestText || bestText.length < 10) {
-            return { hasContent: false, summaryText: '', briefVerdict: '' };
-        }
+        if (!bestText || bestText.length < 10) return { text: '', verdict: '' };
 
-        // 提取前150字作为摘要
-        const summary = bestText.replace(/<[^>]*>/g, '').replace(/\n/g, ' ').substring(0, 150);
-        
-        // 提取简要结论（找"结论"、"定性"、"评级"等关键词后的句子）
+        const clean = bestText.replace(/<[^>]*>/g, '').replace(/\n+/g, ' ').trim();
+        const summary = clean.substring(0, 130);
+
         let verdict = '';
-        const conclusionPatterns = [
-            /(?:结论|判定|定性评级|最终结论)[：:]\s*([^。\n]*)/,
-            /(?:吉凶|胜负|方向)[：:]\s*([^。\n]*)/,
-            /E值[=＝]?\s*(\d+\.?\d*)\s*[\(（]?([^)）\n]*)[\)）]?/,
+        const patterns = [
+            /(?:结论|判定|定性评级|最终)[：:]\s*([^。\n]{0,30})/,
+            /E值[=＝]?\s*(\d+\.?\d*)\s*[\(（]?([^)）\n]{0,20})[\)）]?/,
+            /(?:吉凶|胜负)[：:]\s*([^。\n]{0,20})/,
         ];
-        for (const p of conclusionPatterns) {
+        for (const p of patterns) {
             const m = bestText.match(p);
-            if (m) { verdict = m[1] || m[0]; break; }
+            if (m) { verdict = (m[1]||'') + (m[2]||''); break; }
         }
 
-        return {
-            hasContent: true,
-            summaryText: summary + '...',
-            briefVerdict: verdict || '',
-            source: bestEngine,
-        };
+        return { text: summary + '...', verdict };
     }
 
-    // ===== 构建AI详情HTML =====
-    function buildAIDetailHTML(r, isOpen) {
-        if (!isOpen) return '';
+    // ===== 展开/折叠AI详情 =====
+    function toggleAIDetail(card, id, r) {
+        const st = getState();
+        let existingBox = card.querySelector('.v7-ai-detail');
+        const toggleBtn = card.querySelector('.v7-ai-toggle-btn');
 
-        const aiDS  = getAIText(r, 'DeepSeek');
-        const aiQwen = getAIText(r, 'Qwen');
-        const aiGLM  = getAIText(r, 'GLM');
-        const aiGemini = getAIText(r, 'Gemini');
+        if (existingBox) {
+            // 折叠
+            existingBox.remove();
+            if (toggleBtn) { toggleBtn.textContent = '▼ 展开详情'; toggleBtn.style.background='#f3f4f6'; toggleBtn.style.color='#4b5563'; }
+            if (st && st.openAiBoxIds) st.openAiBoxIds.delete(String(id));
+            return;
+        }
 
-        return `
-        <div class="ai-split-container custom-scrollbar" style="max-height: 400px; overflow-y: auto;">
-            <div class="ai-panel" style="min-width: 250px; flex: 1;">
-                <div class="ai-panel-header deepseek" style="padding: 8px; font-size: 12px; background: #1a1a2e; color: white; border-radius: 6px 6px 0 0;">DeepSeek-V3</div>
-                <div class="ai-panel-body custom-scrollbar" id="card_stream_deepseek_${r.id}" style="padding: 8px; font-size: 12px; max-height: 300px; overflow-y: auto;">${aiDS}</div>
+        // 展开
+        if (toggleBtn) { toggleBtn.textContent = '▲ 收起'; toggleBtn.style.background='#8C2131'; toggleBtn.style.color='white'; }
+        if (st && st.openAiBoxIds) st.openAiBoxIds.add(String(id));
+
+        const detailDiv = document.createElement('div');
+        detailDiv.className = 'v7-ai-detail';
+        detailDiv.style.cssText = 'margin-top:8px; padding-top:8px; border-top:1px dashed #d1d5db;';
+
+        detailDiv.innerHTML = `
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div style="background:#f9fafb; border-radius:6px; padding:8px; border:1px solid #e5e7eb;">
+                    <div style="font-size:11px;font-weight:600;color:#1f2937;margin-bottom:4px;">🤖 DeepSeek</div>
+                    <div style="font-size:11px;color:#4b5563;max-height:200px;overflow-y:auto;white-space:pre-wrap;">${getAIText(r,'DeepSeek')}</div>
+                </div>
+                <div style="background:#f9fafb; border-radius:6px; padding:8px; border:1px solid #e5e7eb;">
+                    <div style="font-size:11px;font-weight:600;color:#1f2937;margin-bottom:4px;">🤖 Qwen</div>
+                    <div style="font-size:11px;color:#4b5563;max-height:200px;overflow-y:auto;white-space:pre-wrap;">${getAIText(r,'Qwen')}</div>
+                </div>
+                <div style="background:#f9fafb; border-radius:6px; padding:8px; border:1px solid #e5e7eb;">
+                    <div style="font-size:11px;font-weight:600;color:#1f2937;margin-bottom:4px;">🤖 Gemini</div>
+                    <div style="font-size:11px;color:#4b5563;max-height:200px;overflow-y:auto;white-space:pre-wrap;">${getAIText(r,'Gemini')}</div>
+                </div>
+                <div style="background:#f9fafb; border-radius:6px; padding:8px; border:1px solid #e5e7eb;">
+                    <div style="font-size:11px;font-weight:600;color:#1f2937;margin-bottom:4px;">🤖 GLM</div>
+                    <div style="font-size:11px;color:#4b5563;max-height:200px;overflow-y:auto;white-space:pre-wrap;">${getAIText(r,'GLM')}</div>
+                </div>
             </div>
-            <div class="ai-panel" style="min-width: 250px; flex: 1;">
-                <div class="ai-panel-header qwen" style="padding: 8px; font-size: 12px; background: #1a1a2e; color: white; border-radius: 6px 6px 0 0;">Qwen Max</div>
-                <div class="ai-panel-body custom-scrollbar" id="card_stream_qwen_${r.id}" style="padding: 8px; font-size: 12px; max-height: 300px; overflow-y: auto;">${aiQwen}</div>
-            </div>
-            <div class="ai-panel" style="min-width: 250px; flex: 1;">
-                <div class="ai-panel-header gemini" style="padding: 8px; font-size: 12px; background: #1a1a2e; color: white; border-radius: 6px 6px 0 0;">Gemini</div>
-                <div class="ai-panel-body custom-scrollbar" id="card_stream_gemini_${r.id}" style="padding: 8px; font-size: 12px; max-height: 300px; overflow-y: auto;">${aiGemini}</div>
-            </div>
-            <div class="ai-panel" style="min-width: 250px; flex: 1;">
-                <div class="ai-panel-header glm" style="padding: 8px; font-size: 12px; background: #1a1a2e; color: white; border-radius: 6px 6px 0 0;">GLM</div>
-                <div class="ai-panel-body custom-scrollbar" id="card_stream_glm_${r.id}" style="padding: 8px; font-size: 12px; max-height: 300px; overflow-y: auto;">${aiGLM}</div>
-            </div>
-        </div>`;
+        `;
+
+        // 插入到AI简报后面
+        const briefDiv = card.querySelector('.v7-ai-brief');
+        if (briefDiv) {
+            briefDiv.parentNode.insertBefore(detailDiv, briefDiv.nextSibling);
+        } else {
+            card.appendChild(detailDiv);
+        }
     }
 
     function getAIText(r, engine) {
         if (r.aiResults && r.aiResults[engine] && r.aiResults[engine].text) {
             return r.aiResults[engine].text;
         }
-        return '<span style="color:#9ca3af;font-style:italic;">暂无推演...</span>';
+        return '(暂无推演)';
     }
 
-    // ===== 事件绑定 =====
-    function bindHistoryEvents(container) {
-        if (!container) return;
+    // ==========================================
+    // 拦截 renderHistoryList
+    // ==========================================
+    function patchHistoryList() {
+        if (!window.UI || typeof window.UI.renderHistoryList !== 'function') return;
 
-        const STATE_REF = typeof STATE !== 'undefined' ? STATE : window.STATE;
+        const orig = window.UI.renderHistoryList;
 
-        // AI展开/折叠
-        container.querySelectorAll('.action-ai-toggle').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const id = btn.dataset.id;
-                const box = document.getElementById('history-ai-box-' + id);
-                if (!box) return;
-                const isOpen = !box.classList.contains('hidden');
-                if (isOpen) {
-                    box.classList.add('hidden');
-                    btn.textContent = '▼ 展开详情';
-                    btn.style.background = '#f3f4f6';
-                    btn.style.color = '#4b5563';
-                    STATE_REF.openAiBoxIds.delete(id);
-                } else {
-                    box.classList.remove('hidden');
-                    box.innerHTML = buildAIDetailHTML(
-                        STATE_REF.history.find(r => String(r.id) === String(id)) || {},
-                        true
-                    );
-                    btn.textContent = '▲ 收起详情';
-                    btn.style.background = '#8C2131';
-                    btn.style.color = 'white';
-                    STATE_REF.openAiBoxIds.add(id);
-                }
+        window.UI.renderHistoryList = function() {
+            orig.call(window.UI);
+            // 等 DOM 渲染完再后处理
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    postProcessHistoryList();
+                });
+            });
+        };
+
+        // 立即触发一次
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (window.UI.renderHistoryList) window.UI.renderHistoryList();
+                console.log('[UI补丁V2] ✅ AI推演后处理已激活');
             });
         });
+    }
 
-        // 删除按钮
-        container.querySelectorAll('.btn-del').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const card = btn.closest('.history-card');
-                if (!card) return;
-                const id = card.dataset.id;
-                if (confirm('确认删除这条记录？')) {
-                    if (window.BIZ && window.BIZ.deleteRecord) {
-                        window.BIZ.deleteRecord(id);
-                    }
+    // ==========================================
+    // 修复：AI盒子滚动消失 → MutationObserver 监控
+    // ==========================================
+    function watchDOMChanges() {
+        const ls = document.getElementById('history_list');
+        if (!ls) return;
+
+        // 监控 history_list 的子树变化
+        const observer = new MutationObserver((mutations) => {
+            let needsUpdate = false;
+            for (const m of mutations) {
+                if (m.type === 'childList' && m.addedNodes.length > 0) {
+                    needsUpdate = true;
+                    break;
                 }
-            });
+                if (m.type === 'characterData') {
+                    needsUpdate = true;
+                    break;
+                }
+            }
+            if (needsUpdate) {
+                requestAnimationFrame(() => postProcessHistoryList());
+            }
         });
 
-        // 分类快速切换
-        container.querySelectorAll('.cat-quick-select').forEach(sel => {
-            sel.addEventListener('change', (e) => {
-                e.stopPropagation();
-                const id = sel.dataset.id;
-                const newCatId = sel.value;
-                if (window.BIZ && window.BIZ.updateRecordField) {
-                    window.BIZ.updateRecordField(id, 'catId', newCatId);
-                }
-            });
-        });
-
-        // 复盘切换
-        container.querySelectorAll('.action-toggle-review').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const id = btn.dataset.id;
-                const box = document.getElementById('history-review-box-' + id);
-                if (!box) return;
-                const isOpen = !box.classList.contains('hidden');
-                if (isOpen) {
-                    box.classList.add('hidden');
-                    STATE_REF.openReviewIds.delete(id);
-                } else {
-                    box.classList.remove('hidden');
-                    STATE_REF.openReviewIds.add(id);
-                }
-            });
-        });
-
-        // 保存复盘
-        container.querySelectorAll('.btn-save-review').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const id = btn.dataset.id;
-                const ta = document.getElementById('history-review-text-' + id);
-                if (ta && window.BIZ && window.BIZ.updateRecordField) {
-                    window.BIZ.updateRecordField(id, 'review', ta.value);
-                }
-            });
-        });
-
-        // 点击卡片加载记录
-        container.querySelectorAll('.history-card').forEach(card => {
-            card.addEventListener('click', (e) => {
-                // 如果点击的是按钮/select/textarea，不触发加载
-                if (e.target.closest('button, select, textarea, .btn-del, .action-ai-toggle, .action-toggle-review, .btn-save-review, .cat-quick-select, .match-btn')) {
-                    return;
-                }
-                const id = card.dataset.id;
-                if (window.BIZ && window.BIZ.loadRecord) {
-                    window.BIZ.loadRecord(id);
-                }
-            });
-        });
+        observer.observe(ls, { childList: true, subtree: true, characterData: true });
+        console.log('[UI补丁V2] ✅ DOM变化监控已激活');
     }
 
     // ==========================================
     // 启动
     // ==========================================
     function init() {
+        const maxTries = 60;
+        let tries = 0;
         const check = setInterval(() => {
-            if (window.UI && window.SHENSHA && (typeof STATE !== 'undefined')) {
+            tries++;
+            if (window.UI && window.SHENSHA && getState()) {
                 clearInterval(check);
                 patchShenSha();
-                patchAIBox();
-                // 对已显示的历史列表强制刷新一次
-                if (window.UI.renderHistoryList) window.UI.renderHistoryList();
-                console.log('[UI补丁] 🎉 神煞修复 + AI推演布局重构完成');
+                patchHistoryList();
+                watchDOMChanges();
+                console.log('[UI补丁V2] 🎉 全部激活');
+            } else if (tries >= maxTries) {
+                clearInterval(check);
+                console.warn('[UI补丁V2] ⚠️ 超时，UI/SHENSHA/STATE未就绪');
             }
         }, 300);
-        setTimeout(() => clearInterval(check), 15000);
     }
 
     if (document.readyState === 'complete') init();
