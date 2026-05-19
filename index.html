@@ -939,7 +939,9 @@ const UI = {
         // 【动态重算引擎】：防御旧记录的 ShenSha: [] 脏数据
         const fixSS = (zhi, existing) => {
             if (existing && existing.length > 0) return existing;
-            if (!data.Context || !data.Context.ssCtx) return [];
+            if (!data.Context || !data.Context.ssCtx) {
+                if (data.Meta && data.Meta.BaZi) { const DZ=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥']; const bP=data.Meta.BaZi.split(' '); const nZ=bP[0]?DZ.find(z=>bP[0].includes(z))||'子':'子'; const nG=bP[0]?bP[0].charAt(0):'甲'; const yj=(data.Meta.YueJiang||'子').replace('将',''); const rG=data.Context?data.Context.gan:(bP[2]?bP[2].charAt(0):'甲'); const rZ=data.Context?data.Context.zhi:(bP[2]?bP[2].charAt(1):'子'); const kw=data.Meta.KongWang?data.Meta.KongWang.split('、').map(s=>s.trim()).filter(Boolean):['子','丑']; const kwK=kw.slice().sort().join(''); const KM={'子丑':'丑','寅卯':'寅','辰巳':'辰','午未':'午','申酉':'申','戌亥':'戌'}; const sM={0:'丑月冬',1:'寅月春',2:'卯月春',3:'辰月春',4:'巳月夏',5:'午月夏',6:'未月夏',7:'申月秋',8:'酉月秋',9:'戌月秋',10:'亥月冬',11:'子月冬'}; const yI=yj?DZ.indexOf(yj):-1; if(!data.Context)data.Context={}; data.Context.ssCtx={taiSui:nZ,nianGan:nG,yueJian:yj,riGan:rG,riZhi:rZ,seasonStr:sM[yI+1]||'寅月春',xunShou:KM[kwK]||'子',kw,tShen:{}} } else { return []; }
+            }
             return SHENSHA.run(zhi, data.Context.ssCtx);
         };
 
@@ -1899,7 +1901,9 @@ const EVENTS = {
             // 【溯源重算补齐】：对防 404 前存下的旧记录进行神煞动态修复
             const fixSS = (zhi, existing) => {
                 if (existing && existing.length > 0) return existing;
-                if (!run.Context || !run.Context.ssCtx) return [];
+                if (!run.Context || !run.Context.ssCtx) {
+                if (run.Meta && run.Meta.BaZi) { const DZ=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥']; const bP=run.Meta.BaZi.split(' '); const nZ=bP[0]?DZ.find(z=>bP[0].includes(z))||'子':'子'; const nG=bP[0]?bP[0].charAt(0):'甲'; const yj=(run.Meta.YueJiang||'子').replace('将',''); const rG=run.Context?run.Context.gan:(bP[2]?bP[2].charAt(0):'甲'); const rZ=run.Context?run.Context.zhi:(bP[2]?bP[2].charAt(1):'子'); const kw=run.Meta.KongWang?run.Meta.KongWang.split('、').map(s=>s.trim()).filter(Boolean):['子','丑']; const kwK=kw.slice().sort().join(''); const KM={'子丑':'丑','寅卯':'寅','辰巳':'辰','午未':'午','申酉':'申','戌亥':'戌'}; const sM={0:'丑月冬',1:'寅月春',2:'卯月春',3:'辰月春',4:'巳月夏',5:'午月夏',6:'未月夏',7:'申月秋',8:'酉月秋',9:'戌月秋',10:'亥月冬',11:'子月冬'}; const yI=yj?DZ.indexOf(yj):-1; if(!run.Context)run.Context={}; run.Context.ssCtx={taiSui:nZ,nianGan:nG,yueJian:yj,riGan:rG,riZhi:rZ,seasonStr:sM[yI+1]||'寅月春',xunShou:KM[kwK]||'子',kw,tShen:{}} } else { return []; }
+                }
                 return SHENSHA.run(zhi, run.Context.ssCtx);
             };
             
@@ -2057,8 +2061,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     EVENTS.init();
 });
 </script>
-<script src="./liuren_integration_v7.js"></script>
-<script src="./liuren_io_patch.js"></script>
-<script src="./liuren_ui_fix.js"></script>
 </body>
 </html>
