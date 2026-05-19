@@ -18,7 +18,7 @@
     function waitReady() {
         return new Promise(resolve => {
             const check = setInterval(() => {
-                if (window.STATE && window.BIZ && window.UI) {
+                if (STATE && BIZ && UI) {
                     clearInterval(check);
                     resolve();
                 }
@@ -99,11 +99,11 @@
 
                     // 去重 + 直接写入 STATE.history
                     let imported = 0;
-                    const existingIds = new Set((window.STATE.history || []).map(r => r.id));
+                    const existingIds = new Set(((STATE && STATE.history) || []).map(r => r.id));
                     for (const rec of records) {
                         if (!rec.id) rec.id = Date.now() + '_' + Math.random().toString(36).substr(2, 8);
                         if (existingIds.has(rec.id)) continue; // 已存在，跳过
-                        try { window.STATE.history.push(rec); existingIds.add(rec.id); imported++; }
+                        try { STATE.history.push(rec); existingIds.add(rec.id); imported++; }
                         catch(er) { console.warn('[IO补丁] 跳过无效记录', rec, er); }
                     }
 
@@ -140,7 +140,7 @@
         btnEl.addEventListener('click', () => {
             try {
                 // 收集所有历史记录
-                const history = window.STATE.history || [];
+                const history = (STATE && STATE.history) || [];
                 const exportData = {
                     exportedAt: new Date().toISOString(),
                     appVersion: 'V7.0',
@@ -252,11 +252,11 @@
             
             const records = data.history || data.records || (Array.isArray(data) ? data : [data]);
             let imported = 0;
-            const existingIds = new Set((window.STATE.history || []).map(r => r.id));
+            const existingIds = new Set(((STATE && STATE.history) || []).map(r => r.id));
             for (const rec of records) {
                 if (!rec.id) rec.id = Date.now() + '_' + Math.random().toString(36).substr(2, 8);
                 if (existingIds.has(rec.id)) continue;
-                try { window.STATE.history.push(rec); existingIds.add(rec.id); imported++; }
+                try { STATE.history.push(rec); existingIds.add(rec.id); imported++; }
                 catch(e) { console.warn('[IO补丁] 跳过', rec, e); }
             }
 
@@ -289,7 +289,7 @@
         if (pushBtn) pushBtn.disabled = true;
 
         try {
-            const history = window.STATE.history || [];
+            const history = (STATE && STATE.history) || [];
             const payload = {
                 updatedAt: new Date().toISOString(),
                 totalRecords: history.length,
