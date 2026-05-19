@@ -41,8 +41,22 @@
         return { key: binKey, url: binId };
     }
 
-    // ==========================================
-    // 1️⃣ 导入本地文件
+    /**
+     * 安全提示（兼容 UI.toast 不存在的情况）
+     */
+    function safeToast(msg, isError) {
+        try {
+            if (window.UI && typeof window.UI.toast === 'function') {
+                window.UI.toast(msg, isError);
+            } else if (window.UI && typeof window.UI.showMsg === 'function') {
+                window.UI.showMsg(msg, isError);
+            } else {
+                console.log('[IO补丁]', msg);
+            }
+        } catch(e) {
+            console.log('[IO补丁]', msg);
+        }
+    }
     // ==========================================
     function initLocalImport() {
         const inputEl = document.getElementById('file_importLocal');
@@ -92,16 +106,16 @@
                         catch(er) { console.warn('[IO补丁] 跳过无法导入的记录', rec, er); }
                     }
 
-                    UI.toast(`✅ 成功导入 ${imported} 条记录`);
+                    safeToast(`✅ 成功导入 ${imported} 条记录`);
                     if (typeof BIZ.persistHistory === 'function') BIZ.persistHistory();
 
                 } catch(err) {
                     console.error('[IO补丁] 导入失败', err);
-                    UI.toast('❌ 导入失败：' + err.message, true);
+                    safeToast('❌ 导入失败：' + err.message, true);
                 }
             };
             reader.onerror = () => {
-                UI.toast('❌ 文件读取失败', true);
+                safeToast('❌ 文件读取失败', true);
             };
             reader.readAsText(file);
 
@@ -158,10 +172,10 @@
                 // 延迟释放 Blob URL
                 setTimeout(() => URL.revokeObjectURL(url), 5000);
 
-                UI.toast(`✅ 已导出 ${history.length} 条记录`);
+                safeToast(`✅ 已导出 ${history.length} 条记录`);
             } catch(err) {
                 console.error('[IO补丁] 导出失败', err);
-                UI.toast('❌ 导出失败：' + err.message, true);
+                safeToast('❌ 导出失败：' + err.message, true);
             }
         });
 
@@ -203,13 +217,18 @@
         console.log('[IO补丁] ✅ 云端同步功能已激活');
     }
 
+    // 防重复请求的锁
+    let _syncing = false;
+
     /**
      * 拉取云端数据
      */
     async function pullFromCloud() {
+        if (_syncing) { console.log('[IO补丁] 同步进行中，跳过'); return; }
+        _syncing = true;
         const cfg = getCloudConfig();
         if (!cfg.url) {
-            UI.toast('⚠️ 请先在设置里填写 Upstash Redis URL', true);
+            safeToast('⚠️ 请先在设置里填写 Upstash Redis URL', true);
             openSettings();
             return;
         }
@@ -240,13 +259,14 @@
             }
 
             if (typeof BIZ.persistHistory === 'function') BIZ.persistHistory();
-            UI.toast(`☁️ 云端拉取完成，导入 ${imported} 条`);
+            safeToast(`☁️ 云端拉取完成，导入 ${imported} 条`);
 
         } catch(err) {
             console.error('[IO补丁] 云端拉取失败', err);
-            UI.toast('❌ 云端拉取失败：' + err.message, true);
+            safeToast('❌ 云端拉取失败：' + err.message, true);
         } finally {
             if (pullBtn) pullBtn.disabled = false;
+            _syncing = false;
         }
     }
 
@@ -254,9 +274,11 @@
      * 推送本地数据到云端
      */
     async function pushToCloud() {
+        if (_syncing) { console.log('[IO补丁] 同步进行中，跳过'); return; }
+        _syncing = true;
         const cfg = getCloudConfig();
         if (!cfg.url) {
-            UI.toast('⚠️ 请先在设置里填写 Upstash Redis URL', true);
+            safeToast('⚠️ 请先在设置里填写 Upstash Redis URL', true);
             openSettings();
             return;
         }
@@ -287,13 +309,14 @@
 
             if (!resp.ok) throw new Error(`服务器返回 ${resp.status}`);
 
-            UI.toast(`☁️ 云端推送完成，共 ${history.length} 条`);
+            safeToast(`☁️ 云端推送完成，共 ${history.length} 条`);
 
         } catch(err) {
             console.error('[IO补丁] 云端推送失败', err);
-            UI.toast('❌ 云端推送失败：' + err.message, true);
+            safeToast('❌ 云端推送失败：' + err.message, true);
         } finally {
             if (pushBtn) pushBtn.disabled = false;
+            _syncing = false;
         }
     }
 
