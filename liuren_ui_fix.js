@@ -1,293 +1,246 @@
 /**
- * 大六壬 V7 界面修复补丁 V3 — 零依赖自启动版
- * 不依赖 UI / SHENSHA / STATE 的加载时机，直接用DOM轮询
+ * 大六壬 UI修复 V4 — DOM事件委托版
+ * 不修改HTML源码，纯DOM层注入
+ * 
+ * 1. 监听 #history_list 的点击，拦截AI展开按钮
+ * 2. 每次渲染后自动注入AI简报到卡片
+ * 3. 用 passive event delegation 防止AI盒子消失
  */
 
 (function() {
+    'use strict';
+    var booted = false;
+    var observer = null;
 
-    // ==========================================
-    // 工具
-    // ==========================================
-    function getState() {
-        // 尝试所有可能的方式访问 STATE
-        if (typeof STATE !== 'undefined') return STATE;
-        if (window.STATE) return window.STATE;
-        return null;
-    }
+    // ===== 工具 =====
+    function log(s) { console.log('[UI-Fix]', s); }
 
-    function getUI() {
-        if (window.UI && typeof window.UI.renderHistoryList === 'function') return window.UI;
-        if (window.UI && typeof window.UI.renderBoard === 'function') return window.UI;
-        return null;
-    }
-
-    function log(msg) { console.log('[UI补丁V3]', msg); }
-
-    // ==========================================
-    // 修复1：神煞 ssCtx 构建
-    // ==========================================
-    function buildSSCtx(data) {
-        if (!data) return null;
-        if (data.Context && data.Context.ssCtx) return data.Context.ssCtx;
-
-        const m = data.Meta || {};
-        const bz = m.BaZi || '';
-        const parts = bz.split(' ');
-        if (parts.length < 3) return null;
-
-        const DZ = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-        const re = /([甲-癸])/;
-        const nianGan = (parts[0].match(re) || ['甲'])[0];
-        const nianZhi = DZ.find(z => parts[0].includes(z)) || '子';
-        const yj = (m.YueJiang || '子').replace('将','');
-        const riGan = data.Context ? data.Context.gan : (parts[2] ? parts[2].charAt(0) : '甲');
-        const riZhi = data.Context ? data.Context.zhi : (parts[2] ? parts[2].charAt(1) : '子');
-
-        const seasonMap = {0:'丑月冬',1:'寅月春',2:'卯月春',3:'辰月春',4:'巳月夏',
-                           5:'午月夏',6:'未月夏',7:'申月秋',8:'酉月秋',
-                           9:'戌月秋',10:'亥月冬',11:'子月冬'};
-        const yjIdx = DZ.indexOf(yj);
-        const seasonStr = seasonMap[yjIdx + 1] || seasonMap[0];
-
-        const kw = m.KongWang ? m.KongWang.split('、').map(s=>s.trim()).filter(Boolean) : ['子','丑'];
-        const kwSorted = kw.slice().sort().join('');
-        const KW_MAP = {'子丑':'丑','寅卯':'寅','辰巳':'辰','午未':'午','申酉':'申','戌亥':'戌'};
-        const xunShou = KW_MAP[kwSorted] || '子';
-
-        return {
-            taiSui: nianZhi, nianGan, yueJian: yj,
-            riGan, riZhi, seasonStr, xunShou, kw, tShen: {}
-        };
-    }
-
-    function patchShenSha() {
-        const ui = getUI();
-        if (!ui) return false;
-
-        const orig = ui.renderBoard;
-        ui.renderBoard = function(data) {
-            if (data && data.Context && !data.Context.ssCtx) {
-                const ssCtx = buildSSCtx(data);
-                if (ssCtx) data.Context.ssCtx = ssCtx;
-            }
-            return orig.call(this, data);
-        };
-
-        log('✅ 神煞修复已激活');
-        return true;
-    }
-
-    // ==========================================
-    // 修复2：AI推演 DOM后处理
-    // ==========================================
-    function postProcessCards() {
-        const ls = document.getElementById('history_list');
-        if (!ls) return;
-
-        const st = getState();
-        const cards = ls.querySelectorAll('.history-card');
-
-        cards.forEach(card => {
-            const id = card.dataset.id;
-            if (!id) return;
-
-            // 找这条记录
-            let record = null;
-            if (st && st.history) {
-                record = st.history.find(r => String(r.id) === String(id));
-            }
-            if (!record) return;
-
-            // 已注入则跳过
-            if (card.querySelector('.v7-ai-brief')) return;
-
-            // 找到插入位置：在标题行或元信息行后面
-            const header = card.querySelector('.history-header');
-            const meta = card.querySelector('.history-meta');
-            const anchor = meta || header || card.firstElementChild;
-            if (!anchor) return;
-
-            // AI简报
-            const brief = buildBriefHTML(record, id, st);
-            const wrapper = document.createElement('div');
-            wrapper.className = 'v7-ai-brief';
-            wrapper.style.cssText = 'margin:4px 0; padding:6px 10px; background:#FFFBEB; border-radius:6px; border:1px solid #FDE68A; font-size:12px;';
-            wrapper.innerHTML = brief;
-
-            anchor.parentNode.insertBefore(wrapper, anchor.nextSibling);
-
-            // 绑定按钮
-            const toggleBtn = wrapper.querySelector('.v7-ai-toggle');
-            if (toggleBtn) {
-                toggleBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    toggleDetail(card, id, record, st);
-                });
-            }
+    // ===== 提取AI摘要 =====
+    function getAISummary(rec) {
+        if (!rec || !rec.aiResults) return { text: '', verdict: '' };
+        var best = '', bestEng = '';
+        ['DeepSeek','Qwen','Gemini','GLM'].forEach(function(e) {
+            var t = (rec.aiResults[e] && rec.aiResults[e].text) || '';
+            if (t.length > best.length) { best = t; bestEng = e; }
         });
+        if (!best || best.length < 10) return { text: '', verdict: '' };
+        var clean = best.replace(/<[^>]*>/g, '').replace(/\n+/g, ' ').trim().substring(0, 130);
+        var v = '';
+        var m = best.match(/(?:结论|判定|评级)[：:]\s*([^。\n]{0,30})/);
+        if (m) v = m[1];
+        return { text: clean + '...', verdict: v, source: bestEng };
     }
 
-    function buildBriefHTML(record, id, st) {
-        // 提取AI文本
-        let bestText = '';
-        for (const eng of ['DeepSeek','Qwen','Gemini','GLM']) {
-            const t = (record.aiResults && record.aiResults[eng] && record.aiResults[eng].text) || '';
-            if (t.length > bestText.length) bestText = t;
-        }
-
-        if (!bestText || bestText.length < 10) {
-            return '<span style="color:#9ca3af;font-style:italic;">🤖 尚未进行AI推演</span>';
-        }
-
-        const clean = bestText.replace(/<[^>]*>/g, '').replace(/\n+/g, ' ').trim();
-        const summary = clean.substring(0, 130);
-
-        // 提取结论
-        let verdict = '';
-        const m = bestText.match(/(?:结论|判定|评级)[：:]\s*([^。\n]{0,30})/);
-        if (m) verdict = m[1];
-
-        const isOpen = st && st.openAiBoxIds && st.openAiBoxIds.has(String(id));
-        const btnStyle = isOpen ? 'background:#8C2131;color:white;' : 'background:#f3f4f6;color:#4b5563;';
-        const btnText = isOpen ? '▲ 收起' : '▼ 展开详情';
-
-        return `
-            <div style="display:flex; align-items:center; justify-content:space-between;">
-                <span style="font-weight:600;color:#1f2937;font-size:12px;">
-                    🤖 AI简报 ${verdict ? '<span style="color:#92400e;font-size:11px;margin-left:6px;">'+verdict+'</span>' : ''}
-                </span>
-                <button class="v7-ai-toggle" style="font-size:10px;padding:2px 8px;${btnStyle}border:1px solid #d1d5db;border-radius:4px;cursor:pointer;">${btnText}</button>
-            </div>
-            <div style="font-size:11px;color:#6b7280;margin-top:2px;line-height:1.4;">${summary}...</div>`;
+    // ===== 获取STATE =====
+    function getST() {
+        try { if (typeof STATE !== 'undefined' && STATE.history) return STATE; }
+        catch(e) {}
+        try { if (window.STATE && window.STATE.history) return window.STATE; }
+        catch(e) {}
+        return null;
     }
 
-    function toggleDetail(card, id, record, st) {
-        let detailBox = card.querySelector('.v7-ai-detail');
-        const toggleBtn = card.querySelector('.v7-ai-toggle');
+    // ===== 查找记录 =====
+    function findRecord(id) {
+        var st = getST();
+        if (!st || !st.history) return null;
+        for (var i = 0; i < st.history.length; i++) {
+            if (String(st.history[i].id) === String(id)) return st.history[i];
+        }
+        return null;
+    }
 
-        if (detailBox) {
+    // ===== 注入AI简报DOM =====
+    function injectAIBrief(card) {
+        if (!card) return;
+        if (card.querySelector('.v7-ai-brief-inline')) return; // 已注入
+        var id = card.getAttribute('data-id');
+        if (!id) return;
+
+        var rec = findRecord(id);
+        if (!rec) return;
+
+        var brief = getAISummary(rec);
+        var st = getST();
+        var isOpen = st && st.openAiBoxIds && st.openAiBoxIds.has(String(id));
+
+        // 找插入位置：meta行后面，capsule之前
+        var meta = card.querySelector('.history-meta');
+        var anchor = meta || card.querySelector('.history-header') || card.firstElementChild;
+        if (!anchor) return;
+
+        var div = document.createElement('div');
+        div.className = 'v7-ai-brief-inline';
+        div.style.cssText = 'margin:4px 0; padding:6px 10px; background:#FFFBEB; border-radius:6px; border:1px solid #FDE68A; font-size:12px;';
+
+        if (brief.text) {
+            div.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+                '<span style="font-weight:600;color:#1f2937;font-size:12px;">🤖 AI简报' +
+                (brief.verdict ? ' <span style="color:#92400e;font-size:11px;">'+brief.verdict+'</span>' : '') +
+                '</span>' +
+                '<button class="v7-ai-toggle-btn" data-id="'+id+'" style="font-size:10px;padding:2px 8px;' +
+                (isOpen ? 'background:#8C2131;color:white;' : 'background:#f3f4f6;color:#4b5563;') +
+                'border:1px solid #d1d5db;border-radius:4px;cursor:pointer;">' +
+                (isOpen ? '▲ 收起' : '▼ 展开详情') + '</button></div>' +
+                '<div style="font-size:11px;color:#6b7280;margin-top:2px;line-height:1.4;">'+brief.text+'</div>';
+        } else {
+            div.innerHTML = '<span style="color:#9ca3af;font-style:italic;">🤖 尚未进行AI推演</span>';
+        }
+
+        anchor.parentNode.insertBefore(div, anchor.nextSibling);
+    }
+
+    // ===== 注入所有卡片（防抖） =====
+    var injectTimer = null;
+    function injectAll() {
+        clearTimeout(injectTimer);
+        injectTimer = setTimeout(function() {
+            var cards = document.querySelectorAll('#history_list .history-card');
+            cards.forEach(injectAIBrief);
+        }, 100);
+    }
+
+    // ===== 展开/折叠AI详情 =====
+    function toggleAIDetail(btn, id) {
+        if (!btn) return;
+        var card = btn.closest('.history-card');
+        if (!card) return;
+
+        var st = getST();
+        var existing = card.querySelector('.v7-ai-detail-box');
+
+        if (existing) {
             // 折叠
-            detailBox.remove();
-            if (toggleBtn) { toggleBtn.textContent = '▼ 展开详情'; toggleBtn.style.background='#f3f4f6'; toggleBtn.style.color='#4b5563'; }
+            existing.remove();
+            btn.textContent = '▼ 展开详情';
+            btn.style.background = '#f3f4f6';
+            btn.style.color = '#4b5563';
             if (st && st.openAiBoxIds) st.openAiBoxIds.delete(String(id));
             return;
         }
 
         // 展开
-        if (toggleBtn) { toggleBtn.textContent = '▲ 收起'; toggleBtn.style.background='#8C2131'; toggleBtn.style.color='white'; }
+        btn.textContent = '▲ 收起';
+        btn.style.background = '#8C2131';
+        btn.style.color = 'white';
         if (st && st.openAiBoxIds) st.openAiBoxIds.add(String(id));
 
-        detailBox = document.createElement('div');
-        detailBox.className = 'v7-ai-detail';
-        detailBox.style.cssText = 'margin:6px 0; padding:8px; background:#f9fafb; border-radius:6px; border:1px solid #e5e7eb;';
+        var rec = findRecord(id);
+        if (!rec) return;
 
-        const engines = ['DeepSeek', 'Qwen', 'Gemini', 'GLM'];
-        detailBox.innerHTML = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">' +
-            engines.map(eng => {
-                const text = (record.aiResults && record.aiResults[eng] && record.aiResults[eng].text) || '(暂无)';
-                return `<div style="background:white; border-radius:4px; padding:6px; border:1px solid #e5e7eb;">
-                    <div style="font-size:11px;font-weight:600;color:#1f2937;margin-bottom:2px;">🤖 ${eng}</div>
-                    <div style="font-size:11px;color:#4b5563;max-height:180px;overflow-y:auto;white-space:pre-wrap;">${text}</div>
-                </div>`;
-            }).join('') + '</div>';
+        var box = document.createElement('div');
+        box.className = 'v7-ai-detail-box';
+        box.style.cssText = 'margin:4px 0; padding:8px; background:#f9fafb; border-radius:6px; border:1px solid #e5e7eb;';
 
-        // 插入到简报后面
-        const briefDiv = card.querySelector('.v7-ai-brief');
-        if (briefDiv && briefDiv.nextSibling) {
-            briefDiv.parentNode.insertBefore(detailBox, briefDiv.nextSibling);
+        var engs = ['DeepSeek', 'Qwen', 'Gemini', 'GLM'];
+        var html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">';
+        engs.forEach(function(e) {
+            var t = (rec.aiResults && rec.aiResults[e] && rec.aiResults[e].text) || '(暂无推演)';
+            html += '<div style="background:white; border-radius:4px; padding:6px; border:1px solid #e5e7eb;">' +
+                '<div style="font-size:11px;font-weight:600;color:#1f2937;margin-bottom:2px;">🤖 '+e+'</div>' +
+                '<div style="font-size:11px;color:#4b5563;max-height:180px;overflow-y:auto;white-space:pre-wrap;">'+t+'</div>' +
+                '</div>';
+        });
+        html += '</div>';
+        box.innerHTML = html;
+
+        // 插入到AI简报后面
+        var briefDiv = card.querySelector('.v7-ai-brief-inline');
+        if (briefDiv) {
+            briefDiv.parentNode.insertBefore(box, briefDiv.nextSibling);
         } else {
-            card.appendChild(detailBox);
+            card.appendChild(box);
         }
     }
 
-    function patchHistoryList() {
-        const ui = getUI();
-        if (!ui) return false;
+    // ===== 事件委托：监听 history_list 上所有点击 =====
+    function setupDelegation() {
+        var ls = document.getElementById('history_list');
+        if (!ls) return;
+        if (ls._v7_delegated) return;
+        ls._v7_delegated = true;
 
-        const orig = ui.renderHistoryList;
-        ui.renderHistoryList = function() {
-            orig.call(this);
-            // DOM渲染后注入
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => postProcessCards());
-            });
+        ls.addEventListener('click', function(e) {
+            // 检查是否是AI展开按钮
+            var toggleBtn = e.target.closest('.v7-ai-toggle-btn');
+            if (toggleBtn) {
+                e.stopPropagation();
+                e.preventDefault();
+                toggleAIDetail(toggleBtn, toggleBtn.getAttribute('data-id'));
+                return;
+            }
+
+            // 检查是否点击了AI盒子内的东西（不做处理，防止冒泡到卡片加载）
+            if (e.target.closest('.v7-ai-detail-box') || e.target.closest('.v7-ai-brief-inline')) {
+                // 不阻止，但也不做特殊处理
+            }
+        }, true); // 捕获阶段
+
+        log('✅ 事件委托已绑定');
+    }
+
+    // ===== MutationObserver =====
+    function watchDOM() {
+        var ls = document.getElementById('history_list');
+        if (!ls) return;
+        if (observer) observer.disconnect();
+
+        observer = new MutationObserver(function() {
+            injectAll();
+        });
+        observer.observe(ls, { childList: true, subtree: true });
+        log('✅ DOM监控已激活');
+    }
+
+    // ===== 拦截 renderHistoryList =====
+    function patchRender() {
+        if (!window.UI || !window.UI.renderHistoryList || window.UI.renderHistoryList._v7_patched) return;
+        
+        var orig = window.UI.renderHistoryList;
+        window.UI.renderHistoryList = function() {
+            orig.apply(window.UI, arguments);
+            injectAll();
         };
-
-        // 立即触发一次
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                if (ui.renderHistoryList) ui.renderHistoryList();
-            });
-        });
-
-        log('✅ AI推演后处理已激活');
-        return true;
+        window.UI.renderHistoryList._v7_patched = true;
+        log('✅ renderHistoryList 已拦截');
     }
 
-    // ==========================================
-    // DOM监控：AI盒子滚动不消失
-    // ==========================================
-    function watchHistoryDOM() {
-        const ls = document.getElementById('history_list');
-        if (!ls) return false;
+    // ===== 启动 =====
+    function boot() {
+        if (booted) return;
 
-        const observer = new MutationObserver(() => {
-            requestAnimationFrame(() => postProcessCards());
-        });
+        // 检查必要条件
+        var ls = document.getElementById('history_list');
+        if (!ls) {
+            setTimeout(boot, 1000);
+            return;
+        }
 
-        observer.observe(ls, { childList: true, subtree: true, characterData: true });
-        log('✅ DOM变化监控已激活');
-        return true;
+        setupDelegation();
+        watchDOM();
+        injectAll();
+
+        if (window.UI && window.UI.renderHistoryList) {
+            patchRender();
+        }
+
+        booted = true;
+        log('🎉 V4 UI补丁全部激活');
     }
 
-    // ==========================================
-    // 自启动 — 用DOM轮询替代依赖STATE/UI
-    // ==========================================
-    function bootstrap() {
-        let shenShaDone = false;
-        let historyDone = false;
-        let watchDone = false;
-
-        const checker = setInterval(() => {
-            // 1. 神煞修复：需要 #out_board 出现 + SHENSHA 就绪
-            if (!shenShaDone && document.getElementById('out_board') && window.SHENSHA) {
-                shenShaDone = patchShenSha();
-            }
-
-            // 2. AI推演：需要 #history_list 有卡片
-            if (!historyDone) {
-                const cards = document.querySelectorAll('#history_list .history-card');
-                if (cards.length > 0 && getUI()) {
-                    historyDone = patchHistoryList();
-                }
-            }
-
-            // 3. DOM监控
-            if (!watchDone && document.getElementById('history_list')) {
-                watchDone = watchHistoryDOM();
-            }
-
-            if (shenShaDone && historyDone && watchDone) {
-                clearInterval(checker);
-                log('🎉 全部激活完成');
-            }
-        }, 500);
-
-        // 最多等60秒
-        setTimeout(() => {
-            clearInterval(checker);
-            if (!shenShaDone || !historyDone) {
-                log('⚠️ 部分功能未激活，可能需手动排盘一次');
-            }
-        }, 60000);
-    }
-
-    // 页面加载完就开始
+    // 页面加载
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', bootstrap);
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(boot, 2000);
+        });
     } else {
-        bootstrap();
+        setTimeout(boot, 2000);
     }
+
+    // 后备：每5秒重试一次
+    var retry = setInterval(function() {
+        if (booted) { clearInterval(retry); return; }
+        boot();
+    }, 5000);
 
 })();
