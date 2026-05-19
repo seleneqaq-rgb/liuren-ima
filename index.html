@@ -1,0 +1,2062 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>大六壬全息推演系统 V6.2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.staticfile.net/lunar-javascript/1.6.13/lunar.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="./bifa_dict_720.js"></script>
+    <script src="./liuren_bifa_dict.js"></script>
+    <script src="./liuren_static_base.js"></script>
+    <script src="./liuren_domain_strategy.js"></script>
+    <script src="./liuren_cases_db.js" onerror="window.CASE_DB_LOAD_ERROR = true;"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;900&display=swap');
+        body { font-family: 'Noto Serif SC', -apple-system, sans-serif; background-color: #FAF8F5; color: #2D3748; margin: 0; padding: 0; }
+        select, input, textarea { appearance: none; outline: none; transition: border-color 0.2s; box-sizing: border-box; }
+        select:focus, input:focus, textarea:focus { border-color: #8C2131; box-shadow: 0 0 0 1px #8C2131; }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 200px; display: flex; justify-content: center; align-items: center; }
+        #toast { visibility: hidden; opacity: 0; transition: opacity 0.3s, transform 0.3s; transform: translate(-50%, 20px); position: fixed; bottom: 24px; left: 50%; background: #2D3748; color: white; padding: 12px 24px; border-radius: 99px; z-index: 50; display: flex; align-items: center; gap: 8px; font-size: 14px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); white-space: nowrap; }
+        #toast.show { visibility: visible; opacity: 1; transform: translate(-50%, 0); }
+        #toast.error { background: #991b1b; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #CBD5E0; border-radius: 3px; }
+
+        .container-box { max-width: 1400px; margin: 0 auto; padding: 12px; }
+        .card-box { background: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .header-title { text-align: center; color: #8C2131; font-size: 24px; font-weight: 900; margin-bottom: 8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 16px; }
+
+        .input-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 16px; }
+        @media (min-width: 768px) { .input-grid { grid-template-columns: repeat(4, 1fr); } .input-grid-2 { grid-column: span 2; } }
+        .base-input { width: 100%; border: 1px solid #d1d5db; border-radius: 8px; padding: 10px; background: #f9fafb; font-size: 16px; }
+        .base-label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @media (min-width: 768px) { .btn-grid { grid-template-columns: repeat(4, 1fr); } }
+        .btn-primary { background: #8C2131; color: white; padding: 12px; border-radius: 8px; font-weight: bold; border: none; font-size: 16px; cursor: pointer; }
+        .btn-ai { background: #2563eb; color: white; padding: 12px; border-radius: 8px; font-weight: bold; border: none; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+        .board-header { display: flex; flex-direction: column; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; margin-bottom: 16px; gap: 8px; }
+        @media (min-width: 768px) { .board-header { flex-direction: row; justify-content: space-between; align-items: flex-start; } .board-header-right { text-align: right; max-width: 50%; } }
+        .keti-container { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; }
+        @media (min-width: 768px) { .keti-container { justify-content: flex-end; } }
+        .keti-tag { display: inline-block; padding: 4px 10px; background: #8C2131; color: white; font-size: 12px; border-radius: 6px; font-weight: bold; }
+
+        .sanchuan-sike-container { display: flex; flex-direction: column; gap: 24px; padding: 16px 0; overflow-x: auto; align-items: center; }
+        @media (min-width: 768px) { .sanchuan-sike-container { flex-direction: row; justify-content: center; align-items: center; } }
+        .sanchuan-col { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 250px; }
+        .sike-row { display: flex; gap: 16px; border-top: 2px solid #f3f4f6; padding-top: 16px; width: 100%; justify-content: center; }
+        @media (min-width: 768px) { .sike-row { border-top: none; border-left: 2px solid #f3f4f6; padding-top: 0; padding-left: 32px; width: auto; } }
+
+        .pan-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; width: 100%; max-width: 320px; margin: 0 auto; background: #f3f4f6; padding: 4px; border-radius: 4px; }
+        .pan-cell { background: white; height: 64px; position: relative; display: flex; align-items: center; justify-content: center; border: 1px solid #e5e7eb; border-radius: 2px; }
+        .pan-cell-empty { background: transparent; height: 64px; }
+
+        .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; text-align: center; }
+        .stat-box { background: #eff6ff; padding: 8px; border-radius: 8px; border: 1px solid #dbeafe; }
+        .history-card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); display: flex; flex-direction: column; cursor: pointer; transition: box-shadow 0.2s; }
+        .history-card:hover { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .history-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .history-title { font-weight: bold; color: #1f2937; font-size: 18px; }
+        .history-meta { font-size: 12px; color: #6b7280; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .history-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e5e7eb; }
+        
+        .capsule-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .capsule-btn { padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: bold; border: 1px solid #d1d5db; background: #f9fafb; color: #4b5563; cursor: pointer; transition: all 0.2s; user-select: none; }
+        .capsule-btn:hover { border-color: #9ca3af; background: #f3f4f6; }
+        .capsule-btn.active-dir { background: #8C2131; color: white; border-color: #8C2131; }
+        .capsule-btn.active-full { background: #d97706; color: white; border-color: #d97706; }
+        .capsule-btn.active-draw { background: #2563eb; color: white; border-color: #2563eb; }
+        .capsule-btn.active-loss { background: #dc2626; color: white; border-color: #dc2626; }
+        .capsule-btn.active-match { background: #1f2937; color: white; border-color: #1f2937; }
+        .capsule-btn.active-partial { background: #ea580c; color: white; border-color: #ea580c; }
+        .capsule-btn.active-win { background: #10b981; color: white; border-color: #10b981; }
+
+        .bifa-sniffer-box { background: #fffcf8; border: 1px solid #fed7aa; border-radius: 12px; padding: 16px; border-left: 4px solid #ea580c; margin-bottom: 16px; }
+        .bifa-sniffer-title { font-size: 14px; font-weight: 900; color: #c2410c; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+        
+        .dash-chart-container { position: relative; width: 100%; height: 240px; margin-top: 12px; }
+
+        select.inline-select { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.2rem center; background-repeat: no-repeat; background-size: 1.2em 1.2em; padding-right: 1.5rem; background-color: #f9fafb; border: 1px solid #d1d5db; padding: 6px; border-radius: 4px; font-size: 12px; }
+        .hidden { display: none !important; }
+
+        .ai-split-container { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 16px; padding-bottom: 12px; }
+        .ai-panel { flex: 0 0 100%; scroll-snap-align: center; background: white; border: 1px solid #e2e8f0; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; min-height: 400px; max-height: 600px; }
+        @media (min-width: 768px) { .ai-panel { flex: 1; min-width: 300px; } }
+        .ai-panel-header { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .ai-panel-header.deepseek { background: #f0fdf4; color: #166534; }
+        .ai-panel-header.qwen { background: #fef2f2; color: #991b1b; }
+        .ai-panel-header.glm { background: #eff6ff; color: #1e40af; }
+        .ai-panel-body { padding: 16px; flex: 1; overflow-y: auto; font-size: 14px; line-height: 1.6; color: #334155; white-space: pre-wrap; }
+    </style>
+</head>
+<body style="padding-bottom: 96px;">
+
+<div class="container-box space-y-6">
+
+    <header class="header-title">
+        大六壬全息推演引擎 V6.2
+        <div style="font-size: 12px; color: #6b7280; font-weight: normal; margin-top: 4px;">多域智能解耦 × 物理嗅探夺权 × 绝对真理覆写</div>
+    </header>
+
+    <details class="card-box transition-all">
+        <summary class="font-bold text-gray-700 cursor-pointer outline-none select-none flex items-center gap-2" style="font-size: 16px; font-weight: bold;">
+            <span style="font-size: 20px;">⚙️</span> 系统引擎与云端配置 / 导入导出
+        </summary>
+        <div class="input-grid" style="margin-top: 16px;">
+            <div><label class="base-label">AI 推演引擎</label><select id="cfg_engine" class="base-input"><option value="qwen3.6-plus" selected>Qwen 3.6 Plus (默认)</option><option value="deepseek">DeepSeek</option><option value="gemini-2.5-flash">Gemini 2.5 Flash</option><option value="qwen">通义千问</option><option value="glm">GLM 智谱</option></select></div>
+            <div><label class="base-label">API Key</label><input type="password" id="cfg_apikey" class="base-input" placeholder="sk-..."></div>
+            <div class="input-grid-2"><label class="base-label">自定义 API 接口地址</label><input type="text" id="cfg_baseurl" class="base-input" placeholder="例如: https://api.xxx.com/v1/chat/completions"></div>
+            <div><label class="base-label">JSONBin Master Key</label><input type="password" id="cfg_binKey" class="base-input" placeholder="用于云端同步..."></div>
+            <div><label class="base-label">JSONBin ID</label><input type="text" id="cfg_binId" class="base-input" placeholder="Bin ID..."></div>
+            
+            <div class="input-grid-2" style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; flex-wrap: wrap;">
+                <input type="file" id="file_importLocal" accept=".json" class="hidden">
+                <button id="btn_importLocal" style="padding: 8px 16px; background: #6b7280; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">⬆️ 导入本地文件</button>
+                <button id="btn_exportLocal" style="padding: 8px 16px; background: #4b5563; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">⬇️ 导出本地文件</button>
+                <button id="btn_pullCloud" style="padding: 8px 16px; background: #0d9488; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">☁️ 强制拉取云端</button>
+                <button id="btn_saveConfig" style="padding: 8px 16px; background: #1f2937; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">💾 保存配置</button>
+            </div>
+        </div>
+    </details>
+
+    <section class="card-box relative overflow-hidden" style="border-left: 4px solid #8C2131;">
+        <h2 style="font-size: 18px; font-weight: bold; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">📋 起课参数与领域分流</h2>
+        <div class="input-grid">
+            <div class="input-grid-2">
+                <label class="base-label">起课时间 (公历)</label>
+                <div style="display:flex; gap:8px;">
+                    <input type="datetime-local" id="in_time" class="base-input" style="font-weight: bold;">
+                    <button id="btn_now_time" style="padding:0 12px; background:#8C2131; color:white; border-radius:8px; border:none; font-size:13px; font-weight:bold; cursor:pointer; white-space:nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">获取当下</button>
+                </div>
+            </div>
+            <div><label class="base-label">地理经度 (真太阳时)</label><input type="number" id="in_longitude" class="base-input" style="text-align: center; font-weight: bold; color: #8C2131;" value="118.18" step="0.01"></div>
+            <div><label class="base-label">性别</label><select id="in_gender" class="base-input" style="text-align: center; font-weight: bold;"><option value="男">男</option><option value="女">女</option></select></div>
+            <div><label class="base-label">出生年份 (生肖基准)</label><input type="number" id="in_birthyear" class="base-input" style="text-align: center; font-weight: bold;" value="1991"></div>
+        </div>
+        <div class="input-grid md:grid-cols-3" style="grid-template-columns: 1fr;">
+            <div class="md:col-span-2" style="grid-column: span 1;"><label class="base-label">占测事项说明</label><input type="text" id="in_matter" class="base-input" placeholder="例如：A股大盘走势 / 湖人vs掘金 / 诉讼调解预期"></div>
+            <div><label class="base-label">预测沙盒归属 (决定打分UI与引擎隔离域)</label><select id="in_cat" class="base-input" style="font-weight: bold; color: #8C2131;"></select></div>
+        </div>
+        <div class="btn-grid">
+            <button id="btn_calc" class="btn-primary col-span-2 md:col-span-1">🎯 本地精准排盘</button>
+            <button id="btn_ai" class="btn-ai hidden col-span-2 md:col-span-1">🤖 智能全息断局</button>
+            <button id="btn_copy" class="hidden" style="background: #f3f4f6; color: #374151; padding: 12px; border-radius: 8px; font-weight: bold; border: 1px solid #d1d5db; cursor: pointer;">📋 复制排盘 JSON</button>
+            <button id="btn_save" class="hidden" style="background: #f97316; color: white; padding: 12px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer;">💾 存档记录</button>
+        </div>
+    </section>
+
+    <section id="view_board" class="hidden" style="animation: fadeIn 0.5s ease-out;">
+        <div id="out_bifa_sniffer" class="bifa-sniffer-box hidden">
+            <div class="bifa-sniffer-title">
+                <span>🎯</span> 物理底座百法命中 (独立预判锚点)
+                <span id="bifa_intent_tag" style="font-size:11px; background:#ffedd5; color:#ea580c; padding:2px 6px; border-radius:4px; margin-left:auto;"></span>
+            </div>
+            <div id="bifa_sniffer_content" class="space-y-3 text-xs text-gray-700 custom-scrollbar" style="max-height: 220px; overflow-y: auto;"></div>
+        </div>
+
+        <div class="card-box">
+            <div class="board-header">
+                <div>
+                    <h3 id="out_matter" style="font-size: 20px; font-weight: 900; margin: 0 0 4px 0;"></h3>
+                    <p id="out_bazi" style="font-size: 14px; font-weight: bold; color: #8C2131; margin: 0;"></p>
+                    <p id="out_meta_extra" style="font-size: 12px; color: #6b7280; margin: 4px 0 0 0;"></p>
+                </div>
+                <div class="board-header-right">
+                    <div id="out_keti" class="keti-container"></div>
+                    <p id="out_rule" style="font-size: 12px; color: #9ca3af; margin: 6px 0 0 0;"></p>
+                </div>
+            </div>
+            <div class="sanchuan-sike-container custom-scrollbar">
+                <div id="out_sanchuan" class="sanchuan-col"></div>
+                <div id="out_sike" class="sike-row"></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <div class="card-box m-0">
+                <h4 style="text-align: center; font-size: 14px; font-weight: bold; color: #9ca3af; margin-bottom: 12px; letter-spacing: 2px;">十二地支天盘列阵</h4>
+                <div id="out_pan" class="pan-grid"></div>
+            </div>
+            <div class="card-box m-0">
+                <h4 style="text-align: center; font-size: 14px; font-weight: bold; color: #9ca3af; margin-bottom: 12px; letter-spacing: 2px;">五行能量博弈分布</h4>
+                <div class="chart-container"><canvas id="elementChart"></canvas></div>
+            </div>
+        </div>
+
+        <div id="view_case_radar" class="card-box mt-6 hidden" style="border-left: 4px solid #10b981; background: #fdfdfc;">
+            <h2 id="radar_title" style="font-size: 16px; font-weight: bold; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">📊 历史案例触发准确率看板</h2>
+            <div id="radar_content_area" class="flex flex-col md:flex-row gap-6">
+                <div class="chart-container w-full md:w-1/3" style="height: 220px; min-height: 220px;">
+                    <canvas id="casePieChart"></canvas>
+                </div>
+                <div id="case_radar_list" class="custom-scrollbar w-full md:w-2/3" style="max-height: 250px; overflow-y: auto; font-size: 12px; display: flex; flex-direction: column; gap: 8px;">
+                </div>
+            </div>
+        </div>
+
+        <div id="ui-recat-box" class="hidden" style="margin-top: 16px; padding: 12px; background: #fdf6ec; border: 1px solid #faecd8; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="font-weight: bold; color: #e6a23c; font-size: 12px;">📌 归档管理</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 12px; color: #6b7280;">转移至：</span>
+                <select id="reCatSelect" style="border: 1px solid #d1d5db; padding: 4px; font-size: 12px; border-radius: 4px;"></select>
+            </div>
+        </div>
+    </section>
+
+    <details id="view_history" class="card-box" open style="margin-top: 24px;">
+        <summary style="font-size: 18px; font-weight: bold; color: #1f2937; cursor: pointer; outline: none; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px;">
+            <span>📚</span> 领域复盘与全息测局历史库
+        </summary>
+        
+        <div class="card-box" style="margin-top: 16px; margin-bottom: 16px; padding: 12px; background: #fafaf9; border-color: #e7e5e4;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <div id="dash_chart_title" style="font-size: 13px; font-weight: bold; color: #8C2131;">📊 实战综合胜率与绝对穿透力看板</div>
+                <div id="dash_chart_mode_tag" style="font-size: 10px; background: #e5e7eb; color: #4b5563; padding: 2px 6px; border-radius: 4px; font-weight: bold;">智能收敛适配中</div>
+            </div>
+            <div id="dash_chart_desc" style="font-size: 11px; color: #a8a29e; margin-bottom: 8px;">依据选定沙盒自动呈现双轨定量指标或单轨定性准确率穿透</div>
+            <div class="dash-chart-container"><canvas id="winRateChart"></canvas></div>
+        </div>
+
+        <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 16px;">
+            <div id="history_tabs" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+            <div style="display: flex; gap: 8px; width: 100%; border-bottom: 1px dashed #e5e7eb; padding-bottom: 16px;">
+                <input type="text" id="in_new_cat" style="flex: 1; border: 1px solid #d1d5db; border-radius: 99px; padding: 6px 16px; font-size: 14px; background: #f9fafb;" placeholder="新分类名称...">
+                <button id="btn_add_cat" style="padding: 6px 16px; background: #1f2937; color: white; border-radius: 99px; font-size: 14px; font-weight: bold; border: none; cursor: pointer;">＋ 新增</button>
+                <button id="btn_manage_cat" style="padding: 6px 16px; background: #f3f4f6; color: #374151; border-radius: 99px; font-size: 14px; font-weight: bold; border: 1px solid #d1d5db; cursor: pointer;">⚙️ 管理</button>
+            </div>
+            <div id="cat_manage_box" class="hidden" style="margin-bottom: 8px; padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
+        <div class="stat-grid">
+            <div class="stat-box"><div style="font-size: 12px; color: #3b82f6;">当前域归档数</div><div id="stat_total" style="font-weight: bold; color: #1d4ed8; font-size: 20px;">0</div></div>
+            <div class="stat-box"><div style="font-size: 12px; color: #3b82f6;">已实战反馈</div><div id="stat_done" style="font-weight: bold; color: #1d4ed8; font-size: 20px;">0</div></div>
+            <div class="stat-box"><div style="font-size: 12px; color: #3b82f6;">最高命中穿透</div><div id="stat_rate" style="font-weight: bold; color: #1d4ed8; font-size: 20px;">0%</div></div>
+        </div>
+        <div id="history_list" style="max-height: 650px; overflow-y: auto; padding-right: 8px;" class="custom-scrollbar"></div>
+    </details>
+</div>
+
+<div id="toast"><span id="toast_icon"></span> <span id="toast_msg"></span></div>
+
+<script>
+// ==========================================
+// 绝对防 404 兜底：内置原生完整神煞底座字典 (70+ 全量，绝无阉割)
+// 彻底解决本地文件读取失败导致的 ShenSha: [] 错误
+// ==========================================
+const FULL_SHENSHA_DICT = {
+    TIANJIANG_ORDER: ["贵人", "螣蛇", "朱雀", "六合", "勾陈", "青龙", "天空", "白虎", "太常", "玄武", "太阴", "天后"],
+    suiZhi: {
+        '太岁': {子:'子',丑:'丑',寅:'寅',卯:'卯',辰:'辰',巳:'巳',午:'午',未:'未',申:'申',酉:'酉',戌:'戌',亥:'亥'},
+        '太阳': {子:'卯',丑:'辰',寅:'巳',卯:'午',辰:'未',巳:'申',午:'酉',未:'戌',申:'亥',酉:'子',戌:'丑',亥:'寅'},
+        '丧门': {子:'辰',丑:'巳',寅:'午',卯:'未',辰:'申',巳:'酉',午:'戌',未:'亥',申:'子',酉:'丑',戌:'寅',亥:'卯'},
+        '官符': {子:'巳',丑:'午',寅:'未',卯:'申',辰:'酉',巳:'戌',午:'亥',未:'子',申:'丑',酉:'寅',戌:'卯',亥:'辰'},
+        '小耗': {子:'未',丑:'申',寅:'酉',卯:'戌',辰:'亥',巳:'子',午:'丑',未:'寅',申:'卯',酉:'辰',戌:'巳',亥:'午'},
+        '岁破': {子:'午',丑:'未',寅:'申',卯:'酉',辰:'戌',巳:'亥',午:'子',未:'丑',申:'寅',酉:'卯',戌:'辰',亥:'巳'},
+        '岁墓': {子:'未',丑:'辰',寅:'丑',卯:'戌',辰:'未',巳:'辰',午:'丑',未:'戌',申:'未',酉:'辰',戌:'丑',亥:'戌'},
+        '白虎': {子:'申',丑:'酉',寅:'戌',卯:'亥',辰:'子',巳:'丑',午:'寅',未:'卯',申:'辰',酉:'巳',戌:'午',亥:'未'},
+        '吊客': {子:'戌',丑:'亥',寅:'子',卯:'丑',辰:'寅',巳:'卯',午:'辰',未:'巳',申:'午',酉:'未',戌:'申',亥:'酉'},
+        '病符': {子:'亥',丑:'子',寅:'丑',卯:'寅',辰:'卯',巳:'辰',午:'巳',未:'午',申:'未',酉:'申',戌:'酉',亥:'戌'},
+        '岁合': {子:'亥',丑:'戌',寅:'酉',卯:'申',辰:'未',巳:'午',午:'巳',未:'辰',申:'卯',酉:'寅',戌:'丑',亥:'子'},
+        '驿马': {子:'寅',丑:'亥',寅:'申',卯:'巳',辰:'寅',巳:'亥',午:'申',未:'巳',申:'寅',酉:'亥',戌:'申',亥:'巳'},
+        '劫煞': {子:'巳',丑:'寅',寅:'亥',卯:'申',辰:'巳',巳:'寅',午:'亥',未:'申',申:'巳',酉:'寅',戌:'亥',亥:'申'},
+        '灾煞': {子:'午',丑:'卯',寅:'子',卯:'酉',辰:'午',巳:'卯',午:'子',未:'酉',申:'午',酉:'卯',戌:'子',亥:'酉'},
+        '岁煞': {子:'未',丑:'辰',寅:'丑',卯:'戌',辰:'未',巳:'辰',午:'丑',未:'戌',申:'未',酉:'辰',戌:'丑',亥:'戌'},
+        '亡神': {子:'亥',丑:'申',寅:'巳',卯:'寅',辰:'亥',巳:'申',午:'巳',未:'寅',申:'亥',酉:'申',戌:'巳',亥:'寅'},
+        '将星': {子:'子',丑:'酉',寅:'午',卯:'卯',辰:'子',巳:'酉',午:'午',未:'卯',申:'子',酉:'酉',戌:'午',亥:'卯'},
+        '攀鞍': {子:'丑',丑:'戌',寅:'未',卯:'辰',辰:'丑',巳:'戌',午:'未',未:'辰',申:'丑',酉:'戌',戌:'未',亥:'辰'},
+        '地煞': {子:'寅',丑:'卯',寅:'辰',卯:'巳',辰:'午',巳:'未',午:'申',未:'酉',申:'戌',酉:'亥',戌:'子',亥:'丑'},
+        '桃花': {子:'酉',丑:'午',寅:'卯',卯:'子',辰:'酉',巳:'午',午:'卯',未:'子',申:'酉',酉:'午',戌:'卯',亥:'子'},
+        '岁刑': {子:'卯',丑:'戌',寅:'巳',卯:'子',辰:'辰',巳:'申',午:'午',未:'丑',申:'寅',酉:'酉',戌:'未',亥:'亥'}
+    },
+    suiGan: {
+        '天庭': {甲:'丑',乙:'寅',丙:'辰',丁:'巳',戊:'辰',己:'巳',庚:'未',辛:'申',壬:'戌',癸:'亥'},
+        '死符': {甲:'申',乙:'申',丙:'亥',丁:'亥',戊:'寅',己:'寅',庚:'巳',辛:'巳',壬:'辰',癸:'辰'}
+    },
+    ji: {
+        '天喜': {春:'戌',夏:'丑',秋:'辰',冬:'未'}, '寡宿': {春:'丑',夏:'辰',秋:'未',冬:'戌'},
+        '孤辰': {春:'巳',夏:'申',秋:'亥',冬:'寅'}, '皇书': {春:'寅',夏:'巳',秋:'申',冬:'亥'},
+        '浴盆': {春:'辰',夏:'未',秋:'戌',冬:'丑'}, '火鬼': {春:'午',夏:'酉',秋:'子',冬:'卯'},
+        '丧车': {春:'酉',夏:'子',秋:'卯',冬:'午'}, '天赦': {春:'寅',夏:'午',秋:'申',冬:'子'},
+        '三丘': {春:'丑',夏:'辰',秋:'戌',冬:'未'}, '五墓': {春:'未',夏:'戌',秋:'辰',冬:'丑'},
+        '四废': {春:'酉',夏:'子',秋:'卯',冬:'午'}
+    },
+    yue: {
+        '天医': ['戌','亥','子','丑','寅','卯','辰','巳','午','未','申','酉'], '地医': ['辰','巳','午','未','申','酉','戌','亥','子','丑','寅','卯'],
+        '生气': ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'], '死气': ['午','未','申','酉','戌','亥','子','丑','寅','卯','辰','巳'],
+        '死神': ['巳','午','未','申','酉','戌','亥','子','丑','寅','卯','辰'], '血支': ['丑','寅','卯','辰','巳','午','未','申','酉','戌','亥','子'],
+        '血忌': ['丑','未','寅','申','卯','酉','辰','戌','巳','亥','午','子'], '飞魂': ['亥','子','丑','寅','卯','辰','巳','午','未','申','酉','戌'],
+        '月破': ['申','酉','戌','亥','子','丑','寅','卯','辰','巳','午','未'], '天鬼': ['酉','午','卯','子','酉','午','卯','子','酉','午','卯','子'],
+        '月厌': ['戌','酉','申','未','午','巳','辰','卯','寅','丑','子','亥'], '天马': ['午','申','戌','子','寅','辰','午','申','戌','子','寅','辰'],
+        '皇恩': ['戌','丑','辰','未','酉','卯','子','午','寅','巳','申','亥'], '成神': ['巳','申','亥','寅','巳','申','亥','寅','巳','申','亥','寅'],
+        '天德': ['未','申','亥','戌','亥','寅','丑','寅','巳','辰','巳','申'], '月德': ['巳','寅','亥','申','巳','寅','亥','申','巳','寅','亥','申'],
+        '解神': ['申','申','戌','戌','子','子','寅','寅','辰','辰','午','午'], '大煞': ['午','卯','子','酉','午','卯','子','酉','午','卯','子','酉'],
+        '破碎': ['酉','巳','丑','酉','巳','丑','酉','巳','丑','酉','巳','丑'], '天贼': ['辰','酉','寅','未','子','巳','戌','卯','申','丑','午','亥']
+    },
+    riGan: {
+        '昼贵': {甲:'丑',乙:'子',丙:'亥',丁:'亥',戊:'丑',己:'子',庚:'丑',辛:'午',壬:'巳',癸:'巳'},
+        '夜贵': {甲:'未',乙:'申',丙:'酉',丁:'酉',戊:'未',己:'申',庚:'未',辛:'寅',壬:'卯',癸:'卯'},
+        '干德': {甲:'寅',乙:'申',丙:'巳',丁:'亥',戊:'巳',己:'寅',庚:'申',辛:'巳',壬:'亥',癸:'巳'},
+        '日德': {甲:'寅',乙:'申',丙:'巳',丁:'亥',戊:'巳',己:'寅',庚:'申',辛:'巳',壬:'亥',癸:'巳'},
+        '日禄': {甲:'寅',乙:'卯',丙:'巳',丁:'午',戊:'巳',己:'午',庚:'申',辛:'酉',壬:'亥',癸:'子'},
+        '羊刃': {甲:'卯',乙:['寅','辰'],丙:'午',丁:'未',戊:'午',己:'未',庚:'酉',辛:'戌',壬:'子',癸:'丑'},
+        '长生': {甲:'亥',乙:'午',丙:'寅',丁:'酉',戊:'寅',己:'酉',庚:'巳',辛:'子',壬:'申',癸:'卯'},
+        '日合': {甲:'未',乙:'申',丙:'戌',丁:'亥',戊:'丑',己:'寅',庚:'辰',辛:'巳',壬:'未',癸:'巳'},
+        '日官': {甲:'酉',乙:'申',丙:'亥',丁:'子',戊:'卯',己:'寅',庚:'巳',辛:'午',壬:['丑','未'],癸:['辰','戌']}
+    },
+    riZhi: {
+        '支德': {子:'巳',丑:'午',寅:'未',卯:'申',辰:'酉',巳:'戌',午:'亥',未:'子',申:'丑',酉:'寅',戌:'卯',亥:'辰'},
+        '支破': {子:'酉',丑:'辰',寅:'亥',卯:'午',辰:'丑',巳:'申',午:'卯',未:'戌',申:'巳',酉:'子',戌:'未',亥:'寅'},
+        '支刑': {子:'卯',丑:'戌',寅:'巳',卯:'子',辰:'辰',巳:'申',午:'午',未:'丑',申:'寅',酉:'酉',戌:'未',亥:'亥'},
+        '支冲': {子:'午',丑:'未',寅:'申',卯:'酉',辰:'戌',巳:'亥',午:'子',未:'丑',申:'寅',卯:'酉',戌:'辰',亥:'巳'},
+        '支害': {子:'未',丑:'午',寅:'巳',卯:'辰',辰:'卯',巳:'寅',午:'丑',未:'子',申:'亥',酉:'戌',戌:'酉',亥:'申'},
+        '支合': {子:'丑',丑:'子',寅:'亥',卯:'戌',辰:'酉',巳:'申',午:'未',未:'午',申:'巳',酉:'辰',戌:'卯',亥:'寅'},
+        '游都': {子:'辰',丑:'辰',寅:'辰',卯:'辰',辰:'巳',巳:'巳',午:'午',未:'午',申:'申',酉:'申',戌:'戌',亥:'亥'},
+        '鲁都': {子:'戌',丑:'戌',寅:'戌',卯:'戌',辰:'亥',巳:'亥',午:'子',未:'子',申:'寅',酉:'寅',戌:'辰',亥:'巳'},
+        '桃花': {子:'酉',丑:'午',寅:'卯',卯:'子',辰:'酉',巳:'午',午:'卯',未:'子',申:'酉',酉:'午',戌:'卯',亥:'子'},
+        '驿马': {子:'寅',丑:'亥',寅:'申',卯:'巳',辰:'寅',巳:'亥',午:'申',未:'巳',申:'寅',酉:'亥',戌:'申',亥:'巳'},
+        '华盖': {子:'辰',丑:'丑',寅:'戌',卯:'未',辰:'辰',巳:'丑',午:'戌',未:'未',申:'辰',酉:'丑',戌:'戌',亥:'未'}
+    },
+    xun: {
+        '旬空': {'甲子':['戌','亥'],'甲戌':['申','酉'],'甲申':['午','未'],'甲午':['辰','巳'],'甲辰':['寅','卯'],'甲寅':['子','丑']},
+        '仪神': {'甲子':'子','甲戌':'戌','甲申':'申','甲午':'午','甲辰':'辰','甲寅':'寅'},
+        '旬奇': {'甲子':'丑','甲戌':'丑','甲申':'子','甲午':'子','甲辰':'亥','甲寅':'亥'},
+        '丁神': {'甲子':'卯','甲戌':'丑','甲申':'亥','甲午':'酉','甲辰':'未','甲寅':'巳'}
+    }
+};
+window.SHENSHA_DICT = FULL_SHENSHA_DICT; // 强制覆盖外部可能存在的报错或不全文件
+
+const HARDCODED_KEYS = {
+    'DeepSeek': 'sk-bcf6ad2c178748cd87bf6faf1d019466',
+    'Qwen': 'sk-e843305f39fb48d5ac01f7ab6a5faa4c', 
+    'GLM': '015efbf453954f8492790b096a82c01a.UIUUF46m68cWczB6'
+};
+
+const BIFA_DICT_720 = window.BIFA_DICT_720 || {};
+const BIFA_100_RULES = window.BIFA_100_RULES || {};
+const DI_ZHI = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+const TIAN_GAN = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+const GANZHI = window.GANZHI || [
+    '甲子','乙丑','丙寅','丁卯','戊辰','己巳','庚午','辛未','壬申','癸酉',
+    '甲戌','乙亥','丙子','丁丑','戊寅','己卯','庚辰','辛巳','壬午','癸未',
+    '甲申','乙酉','丙戌','丁亥','戊子','己丑','庚寅','辛卯','壬辰','癸巳',
+    '甲午','乙未','丙申','丁酉','戊戌','己亥','庚子','辛丑','壬寅','癸卯',
+    '甲辰','乙巳','丙午','丁未','戊申','己酉','庚戌','辛亥','壬子','癸丑',
+    '甲寅','乙卯','丙辰','丁巳','戊午','己未','庚申','辛酉','壬戌','癸亥'
+];
+const GAN_WX = window.GAN_WUXING || {'甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水'};
+const ZHI_WX = window.ZHI_WUXING || {'寅':'木','卯':'木','巳':'火','午':'火','申':'金','酉':'金','亥':'水','子':'水','辰':'土','戌':'土','丑':'土','未':'土'};
+const WUXING = { ...GAN_WX, ...ZHI_WX };
+const YINYANG = {
+    '甲':1,'丙':1,'戊':1,'庚':1,'壬':1, '乙':0,'丁':0,'己':0,'辛':0,'癸':0, 
+    '子':1,'寅':1,'辰':1,'午':1,'申':1,'戌':1, '丑':0,'卯':0,'巳':0,'未':0,'酉':0,'亥':0
+};
+const JIGONG = { '甲':'寅','乙':'辰','丙':'巳','丁':'未','戊':'巳','己':'未','庚':'申','辛':'戌','壬':'亥','癸':'丑' };
+const GODS = ['贵','蛇','朱','合','勾','龙','空','虎','常','玄','阴','后'];
+const GUI_RULES = {
+    '甲':{d:'丑',n:'未'},'戊':{d:'丑',n:'未'},'庚':{d:'丑',n:'未'},
+    '乙':{d:'子',n:'申'},'己':{d:'子',n:'申'},
+    '丙':{d:'亥',n:'酉'},'丁':{d:'亥',n:'酉'},
+    '壬':{d:'巳',n:'卯'},'癸':{d:'巳',n:'卯'},
+    '辛':{d:'午',n:'寅'}
+};
+const JIEQI_JIANG = {
+    '雨水':'亥','惊蛰':'亥','春分':'戌','清明':'戌',
+    '谷雨':'酉','立夏':'酉','小满':'申','芒种':'申',
+    '夏至':'未','小暑':'未','大暑':'午','立秋':'午',
+    '处暑':'巳','白露':'巳','秋分':'辰','寒露':'辰',
+    '霜降':'卯','立冬':'卯','小雪':'寅','大雪':'寅',
+    '冬至':'丑','小寒':'丑','大寒':'子','立春':'子'
+};
+const DOMAINS = window.DOMAIN_STRATEGIES || {};
+
+const IDB = {
+    db: null,
+    init: () => new Promise((resolve, reject) => {
+        const req = indexedDB.open('LiuRenCoreDB', 1);
+        req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if(!db.objectStoreNames.contains('history')) {
+                db.createObjectStore('history', { keyPath: 'id' });
+            }
+        };
+        req.onsuccess = async (e) => {
+            IDB.db = e.target.result;
+            const lsData = localStorage.getItem('liuren_history');
+            if(lsData) {
+                try {
+                    const lsArr = JSON.parse(lsData);
+                    if(lsArr.length > 0) {
+                        const count = await IDB.count();
+                        if(count === 0) {
+                            for(let item of lsArr) await IDB.put(item);
+                            console.log("【架构突破】已将旧 localStorage 数据无缝注入 IndexedDB");
+                        }
+                    }
+                } catch(err){}
+            }
+            resolve();
+        };
+        req.onerror = () => reject(req.error);
+    }),
+    getAll: () => new Promise(resolve => {
+        const tx = IDB.db.transaction('history', 'readonly');
+        const req = tx.objectStore('history').getAll();
+        req.onsuccess = () => resolve(req.result.sort((a,b)=>b.id.localeCompare(a.id)));
+    }),
+    put: (item) => new Promise(resolve => {
+        const tx = IDB.db.transaction('history', 'readwrite');
+        tx.objectStore('history').put(item);
+        tx.oncomplete = () => resolve();
+    }),
+    delete: (id) => new Promise(resolve => {
+        const tx = IDB.db.transaction('history', 'readwrite');
+        tx.objectStore('history').delete(id);
+        tx.oncomplete = () => resolve();
+    }),
+    count: () => new Promise(resolve => {
+        const tx = IDB.db.transaction('history', 'readonly');
+        const req = tx.objectStore('history').count();
+        req.onsuccess = () => resolve(req.result);
+    })
+};
+
+const BIFA_ENGINE = {
+    getRules: (stemBranch, juStr) => {
+        if (typeof window.BIFA_DICT_720 === 'undefined' || !window.BIFA_DICT_720) return [];
+        const targetKey = stemBranch + "_" + juStr;
+        if (window.BIFA_DICT_720[targetKey] && Array.isArray(window.BIFA_DICT_720[targetKey])) {
+            return window.BIFA_DICT_720[targetKey];
+        }
+        const fallbackKey = Object.keys(window.BIFA_DICT_720).find(k => k.startsWith(stemBranch + "_") && k.includes(juStr));
+        if (fallbackKey && Array.isArray(window.BIFA_DICT_720[fallbackKey])) {
+            return window.BIFA_DICT_720[fallbackKey];
+        }
+        return [];
+    }
+};
+
+let savedCfg = null;
+try { savedCfg = JSON.parse(localStorage.getItem('lr_config')); } catch(e){}
+if(!savedCfg || !savedCfg.binId) savedCfg = {
+    engine: 'qwen3.6-plus',
+    apiKey: 'sk-bcf6ad2c178748cd87bf6faf1d019466',
+    baseUrl: '', 
+    binKey: 'gQAAAAAAAbnpAAIgcDI3NTcxOGY0NzExMjg0N2Q4YWI5N2MxZmY3NTY2YjBiMg',
+    binId: 'https://present-eagle-113129.upstash.io'
+};
+
+const defaultInitCategories = [
+    { id: "default", name: "默认分类" },
+    { id: "c_sport_basket", name: "🏀 篮球赛事 (胜负/胜分差)" },
+    { id: "c_sport_soccer", name: "⚽ 足球赛事 (胜负平/精准比分)" },
+    { id: "c_sport_esport", name: "🎮 电竞赛事 (BO3/BO5大局比分)" },
+    { id: "c_finance_stock", name: "📈 金融股市 (A股 T+0 量化验证)" },
+    { id: "c_career", name: "💼 事业晋升 (求官/跳槽/职场内耗)" },
+    { id: "c_wealth", name: "💰 财运投资 (求财/买卖/借贷索债)" },
+    { id: "c_marriage", name: "💍 婚姻情感 (感情/合婚/家庭关系)" },
+    { id: "c_health", name: "🏥 疾病健康 (病情/医治/吉凶定性)" },
+    { id: "c_pregnancy", name: "🍼 孕产繁育 (胎孕/生产/母子平安)" },
+    { id: "c_lawsuit", name: "⚖️ 诉讼纠纷 (官司/胜负/维权调解)" },
+    { id: "c_exam", name: "🎓 考学前程 (考试/升学/功名前途)" },
+    { id: "c_timing", name: "⏳ 应期推演 (成事时间/爆发节点)" },
+    { id: "c_lost", name: "🔍 寻人失物 (失物所在/能否寻回)" },
+    { id: "c_macro_politics", name: "🌍 宏观时政与重要大事 (外交/博弈)" },
+    { id: "c_travel", name: "🚗 出行访谒 (出行平安/所见所遇)" },
+    { id: "c_other", name: "🔮 射覆/杂事 (其他常规定性事务)" }
+];
+
+let cachedCats = [];
+try { cachedCats = JSON.parse(localStorage.getItem('liuren_categories')); } catch(e){}
+if (!cachedCats || !Array.isArray(cachedCats) || cachedCats.length === 0) {
+    cachedCats = defaultInitCategories;
+} else {
+    defaultInitCategories.forEach(newCat => {
+        if (!cachedCats.find(c => c.id === newCat.id)) {
+            cachedCats.push(newCat);
+        }
+    });
+}
+localStorage.setItem('liuren_categories', JSON.stringify(cachedCats));
+
+const STATE = {
+    history: [], 
+    categories: cachedCats,
+    config: savedCfg,
+    filterCat: 'all', 
+    currentRun: null, 
+    activeRecordId: null, 
+    chartInstance: null,
+    dashChart: null,
+    radarChart: null, 
+    openReviewIds: new Set(),
+    openAiBoxIds: new Set()
+};
+
+const getDomainType = (catId, matter = '') => {
+    if (typeof window.DOMAIN_STRATEGIES !== 'undefined' && typeof window.DOMAIN_STRATEGIES.getStrategy === 'function') {
+        const strat = window.DOMAIN_STRATEGIES.getStrategy(matter);
+        if(strat.domainName.includes('篮球')) return 'basket';
+        if(strat.domainName.includes('足球')) return 'soccer';
+        if(strat.domainName.includes('电竞')) return 'esport';
+        if(strat.domainName.includes('股市')) return 'stock';
+    }
+    if (catId === 'c_sport_basket' || /篮球|NBA|CBA/.test(matter)) return 'basket';
+    if (catId === 'c_sport_soccer' || /足球|世界杯|欧冠|英超/.test(matter)) return 'soccer';
+    if (catId === 'c_sport_esport' || /电竞|LOL|KPL|CSGO|王者|无畏|BO3|BO5/.test(matter)) return 'esport';
+    if (catId === 'c_finance_stock' || /股票|股市|大盘|个股|看涨|看跌|A股/.test(matter)) return 'stock';
+    return 'general'; 
+};
+
+const migrateData = async () => {
+    let changed = false;
+    STATE.history.forEach(r => {
+        if (!r.aiResults) {
+            r.aiResults = { 'LocalAI': { result: 'pending', dir: '', diff: '', res: 'pending', text: '' }, 'DeepSeek': { result: 'pending', dir: '', diff: '', res: 'pending', text: '' }, 'Gemini': { result: 'pending', dir: '', diff: '', res: 'pending', text: '' }, 'Qwen': { result: 'pending', dir: '', diff: '', res: 'pending', text: '' }, 'GLM': { result: 'pending', dir: '', diff: '', res: 'pending', text: '' } };
+            if (r.src && ['DeepSeek', 'Gemini', 'Qwen', 'GLM'].includes(r.src)) { 
+                r.aiResults[r.src].res = r.res || 'pending'; 
+                r.aiResults[r.src].result = r.res || 'pending'; 
+                if (r.aiText) r.aiResults[r.src].text = r.aiText; 
+            }
+            changed = true;
+        } else {
+            ['LocalAI', 'DeepSeek', 'Gemini', 'Qwen', 'GLM'].forEach(src => {
+                if(!r.aiResults[src]) r.aiResults[src] = { result: 'pending', dir: '', diff: '', res: 'pending', text: '' };
+                if(r.aiResults[src].result && !r.aiResults[src].res) r.aiResults[src].res = r.aiResults[src].result;
+            });
+            changed = true;
+        }
+        if (!r.actualRes) {
+            r.actualRes = { dir: '', diff: '', result: 'pending' };
+            changed = true;
+        }
+        if (!r.uiSubTab) {
+            r.uiSubTab = 'actual';
+            changed = true;
+        }
+    });
+    if (changed) await BIZ.persistHistory();
+};
+
+const SHENSHA = {
+    run: (zhi, ctx) => {
+        const hits = [];
+        const srcDict = FULL_SHENSHA_DICT; // 强制使用全量引擎，杜绝外部 404
+        const YJ = ['寅','卯','辰','巳','午','未','申','酉','戌','亥','子','丑'];
+
+        const check = (dictGroup, key, isYue = false) => {
+            if (!dictGroup) return;
+            for (let ss in dictGroup) {
+                let target = dictGroup[ss];
+                
+                if (isYue && Array.isArray(target)) {
+                    let yjIndex = YJ.indexOf(key);
+                    if (yjIndex !== -1 && target[yjIndex] === zhi) hits.push(ss);
+                    continue;
+                }
+
+                if (target && !Array.isArray(target)) {
+                    let t = target[key];
+                    if (t) {
+                        if (Array.isArray(t) && t.includes(zhi)) hits.push(ss);
+                        else if (t === zhi) hits.push(ss);
+                    }
+                }
+            }
+        };
+        
+        check(srcDict.suiZhi, ctx.taiSui);
+        check(srcDict.suiGan, ctx.nianGan);
+        check(srcDict.ji, ctx.seasonStr);
+        check(srcDict.yue, ctx.yueJian, true);
+        check(srcDict.riGan, ctx.riGan);
+        check(srcDict.riZhi, ctx.riZhi);
+        check(srcDict.xun, ctx.xunShou);
+        
+        return [...new Set(hits)]; 
+    }
+};
+
+const isKe = (aWX, bWX) => { 
+    const keMap = {'金':'木', '木':'土', '土':'水', '水':'火', '火':'金'};
+    return keMap[aWX] === bWX; 
+};
+
+const ALGO = {
+    getWX: (char) => WUXING[char],
+    
+    run: (riGan, riZhi, yueJiang, zhanShi) => {
+        let tp = {};
+        let yjIdx = DI_ZHI.indexOf(yueJiang), hIdx = DI_ZHI.indexOf(zhanShi);
+        for(let i=0; i<12; i++) {
+            tp[DI_ZHI[i]] = DI_ZHI[(yjIdx + (i - hIdx) + 120) % 12];
+        }
+
+        let dGanJiGong = JIGONG[riGan];
+        let sike = [
+            { top: tp[dGanJiGong], bottom: riGan, isGan: true },
+            { top: tp[tp[dGanJiGong]], bottom: tp[dGanJiGong], isGan: false },
+            { top: tp[riZhi], bottom: riZhi, isGan: false },
+            { top: tp[tp[riZhi]], bottom: tp[riZhi], isGan: false }
+        ];
+        let chu = '', zhong = '', mo = '', method = '';
+        let dGanW = WUXING[riGan];
+        let zeis = [], kes = [];
+        let uZeis = new Set(), uKes = new Set();
+        for (let i = 0; i < 4; i++) {
+            let topW = WUXING[sike[i].top];
+            let botW = sike[i].isGan ? dGanW : WUXING[sike[i].bottom];
+            if (isKe(botW, topW) && !uZeis.has(sike[i].top)) {
+                uZeis.add(sike[i].top);
+                zeis.push({idx: i, top: sike[i].top});
+            }
+            if (isKe(topW, botW) && !uKes.has(sike[i].top)) {
+                uKes.add(sike[i].top);
+                kes.push({idx: i, top: sike[i].top});
+            }
+        }
+
+        let isFuyin = (yueJiang === zhanShi);
+        let isFanyin = (Math.abs(DI_ZHI.indexOf(yueJiang) - DI_ZHI.indexOf(zhanShi)) === 6);
+        let isBazhuan = (dGanJiGong === riZhi);
+        const XING = {'寅':'巳','巳':'申','申':'寅','丑':'戌','戌':'未','未':'丑','子':'卯','卯':'子','辰':'辰','午':'午','酉':'酉','亥':'亥'};
+        const CHONG = {'子':'午','丑':'未','寅':'申','卯':'酉','辰':'戌','巳':'亥','午':'子','未':'丑','申':'寅','酉':'卯','戌':'辰','亥':'巳'};
+
+        if (isFuyin && zeis.length === 0 && kes.length === 0) {
+            if (riGan === '癸') {
+                chu = '丑'; zhong = '戌'; mo = '未'; method = '伏吟';
+            } else if (YINYANG[riGan] === 1) {
+                chu = sike[0].top; method = '伏吟(自任)';
+                let isZiXing = ['辰','午','酉','亥'].includes(chu);
+                zhong = isZiXing ? sike[2].top : XING[chu];
+                let isZhongZiXing = ['辰','午','酉','亥'].includes(zhong);
+                mo = isZhongZiXing ? CHONG[zhong] : XING[zhong];
+            } else {
+                chu = sike[2].top; method = '伏吟(自信)';
+                let isZiXing = ['辰','午','酉','亥'].includes(chu);
+                zhong = isZiXing ? sike[0].top : XING[chu];
+                let isZhongZiXing = ['辰','午','酉','亥'].includes(zhong);
+                mo = isZhongZiXing ? CHONG[zhong] : XING[zhong];
+            }
+        } else if (isFanyin && zeis.length === 0 && kes.length === 0) {
+            const YIMA = {'子':'寅','丑':'亥','寅':'申','卯':'巳','辰':'寅','巳':'亥','午':'申','未':'巳','申':'寅','酉':'亥','戌':'申','亥':'巳'};
+            chu = YIMA[riZhi]; zhong = sike[2].top; mo = sike[0].top; method = '返吟(无依)';
+        } else if (isBazhuan && zeis.length === 0 && kes.length === 0) {
+            method = '八专(帷簿不修)';
+            if (YINYANG[riGan] === 1) { 
+                let startIdx = DI_ZHI.indexOf(sike[0].top);
+                chu = DI_ZHI[(startIdx + 2) % 12]; 
+            } else { 
+                let startIdx = DI_ZHI.indexOf(sike[3].top);
+                chu = DI_ZHI[(startIdx - 2 + 12) % 12]; 
+            }
+            zhong = sike[0].top; mo = sike[0].top;
+        } else if (zeis.length > 0 || kes.length > 0) {
+            let targetArr = zeis.length > 0 ? zeis : kes;
+            let isZei = zeis.length > 0;
+            if (targetArr.length === 1) {
+                chu = targetArr[0].top; method = isZei ? '重审' : '元首';
+            } else {
+                let matched = targetArr.filter(item => YINYANG[item.top] === YINYANG[riGan]);
+                if (matched.length === 1) {
+                    chu = matched[0].top; method = isZei ? '比用' : '知一';
+                } else {
+                    method = '涉害';
+                    const MENG = ['寅','申','巳','亥'], ZHONG = ['子','午','卯','酉'];
+                    let candidates = matched.length > 1 ? matched : targetArr;
+                    let best = candidates[0];
+
+                    for(let i=1; i<candidates.length; i++) {
+                        let curr = candidates[i];
+                        let bZhiCurr = sike[curr.idx].bottom; bZhiCurr = bZhiCurr === riGan ? dGanJiGong : bZhiCurr;
+                        let bZhiBest = sike[best.idx].bottom; bZhiBest = bZhiBest === riGan ? dGanJiGong : bZhiBest;
+
+                        let cVal = MENG.includes(bZhiCurr) ? 3 : ZHONG.includes(bZhiCurr) ? 2 : 1;
+                        let bVal = MENG.includes(bZhiBest) ? 3 : ZHONG.includes(bZhiBest) ? 2 : 1;
+                        if (cVal > bVal) { best = curr;
+                        } else if (cVal === bVal) {
+                            let isYangDay = YINYANG[riGan] === 1;
+                            let currIsGan = (curr.idx === 0 || curr.idx === 1);
+                            let bestIsGan = (best.idx === 0 || best.idx === 1);
+                            if (currIsGan !== bestIsGan) {
+                                if ((isYangDay && currIsGan) || (!isYangDay && !currIsGan)) best = curr;
+                            } else {
+                                if (curr.idx === 0 || curr.idx === 2) best = curr;
+                            }
+                        }
+                    }
+                    chu = best.top;
+                }
+            }
+        } else {
+            let yaos = [], ke_stems = [];
+            for(let i=1; i<=3; i++) {
+                let topW = WUXING[sike[i].top];
+                if (isKe(topW, dGanW)) ke_stems.push({idx: i, top: sike[i].top});
+                if (isKe(dGanW, topW)) yaos.push({idx: i, top: sike[i].top});
+            }
+            if (ke_stems.length > 0 || yaos.length > 0) {
+                let targetArr = ke_stems.length > 0 ? ke_stems : yaos;
+                method = ke_stems.length > 0 ? '蒿矢' : '弹射';
+                if (targetArr.length === 1) chu = targetArr[0].top;
+                else {
+                    let matched = targetArr.filter(item => YINYANG[item.top] === YINYANG[riGan]);
+                    if (matched.length === 1) chu = matched[0].top;
+                    else {
+                        const MENG = ['寅','申','巳','亥'], ZHONG = ['子','午','卯','酉'];
+                        let candidates = matched.length > 1 ? matched : targetArr;
+                        let best = candidates[0];
+                        for(let i=1; i<candidates.length; i++) {
+                            let curr = candidates[i];
+                            let bZhiCurr = sike[curr.idx].bottom; bZhiCurr = bZhiCurr === riGan ? dGanJiGong : bZhiCurr;
+                            let bZhiBest = sike[best.idx].bottom; bZhiBest = bZhiBest === riGan ? dGanJiGong : bZhiBest;
+                            let cVal = MENG.includes(bZhiCurr) ? 3 : ZHONG.includes(bZhiCurr) ? 2 : 1;
+                            let bVal = MENG.includes(bZhiBest) ? 3 : ZHONG.includes(bZhiBest) ? 2 : 1;
+                            if (cVal > bVal) best = curr;
+                            else if (cVal === bVal) {
+                                let isYangDay = YINYANG[riGan] === 1;
+                                let currIsGan = (curr.idx === 0 || curr.idx === 1);
+                                let bestIsGan = (best.idx === 0 || best.idx === 1);
+                                if (currIsGan !== bestIsGan) {
+                                    if ((isYangDay && currIsGan) || (!isYangDay && !currIsGan)) best = curr;
+                                } else {
+                                    if (curr.idx === 0 || curr.idx === 2) best = curr;
+                                }
+                            }
+                        }
+                        chu = best.top;
+                    }
+                }
+            } else {
+                let uniqueTops = new Set([sike[0].top, sike[1].top, sike[2].top, sike[3].top]);
+                if (uniqueTops.size === 4) {
+                    method = '昴星';
+                    if (YINYANG[riGan] === 1) { chu = tp['酉']; zhong = sike[2].top; mo = sike[0].top; }
+                    else { chu = Object.keys(tp).find(k => tp[k] === '酉'); zhong = sike[0].top; mo = sike[2].top; }
+                } else {
+                    method = '别责';
+                    if (YINYANG[riGan] === 1) { const heMap={'甲':'己','丙':'辛','戊':'癸','庚':'乙','壬':'丁'}; chu = tp[JIGONG[heMap[riGan]]]; }
+                    else { const sanHeNext={'酉':'丑','丑':'巳','巳':'酉','卯':'未','未':'亥','亥':'卯','子':'辰','辰':'申','申':'子','午':'戌','戌':'寅','寅':'午'}; chu = tp[sanHeNext[riZhi]]; }
+                    zhong = sike[0].top; mo = sike[0].top;
+                }
+            }
+        }
+
+        if (!zhong) zhong = tp[chu];
+        if (!mo) mo = tp[zhong];
+
+        return {
+            天地盘状态: isFuyin ? "重合 (伏吟)" : (isFanyin ? "对冲 (返吟)" : "常规"),
+            四课完整度: new Set(sike.map(s=>s.top)).size === 4 ? "全" : "不全",
+            克贼统计: { 下贼上_count: zeis.length, 上克下_count: kes.length },
+            九宗门路由变量: { 发用决定法则: method.split('(')[0], 克贼类型: method },
+            三传: { 初传: chu, 中传: zhong, 末传: mo },
+            四课: sike.map((s) => ({ upper: s.top, lower: s.bottom, isGan: s.isGan, relation: "依据逻辑处理" })),
+            天地盘: tp
+        };
+    },
+
+    matchRule: (r, gan, zhi, env) => {
+        let ketiList = [];
+        let method = r.九宗门路由变量.克贼类型;
+        let baseMethod = method.split('(')[0];
+        ketiList.push(baseMethod);
+
+        let dGan = gan;
+        let chu = r.三传.初传, zhong = r.三传.中传, mo = r.三传.末传;
+
+        if (baseMethod === '昴星') ketiList.push(YINYANG[dGan] === 1 ? '虎视' : '掩目');
+        if (baseMethod === '伏吟') ketiList.push(YINYANG[dGan] === 1 ? '自任' : '自信');
+        if (baseMethod === '返吟') ketiList.push(method.includes('无依') ? '无依' : '无亲');
+        if (baseMethod === '八专') ketiList.push('帷簿不修');
+        if (baseMethod === '别责') ketiList.push('芜淫');
+        
+        let scZhi = [chu, zhong, mo];
+        let idx0 = DI_ZHI.indexOf(chu), idx1 = DI_ZHI.indexOf(zhong), idx2 = DI_ZHI.indexOf(mo);
+        let diff1 = (idx1 - idx0 + 12) % 12;
+        let diff2 = (idx2 - idx1 + 12) % 12;
+        if ((diff1 === 2 && diff2 === 2) || (diff1 === 10 && diff2 === 10)) {
+            if (diff1 === 10 && chu === '午') ketiList.push('顾祖');
+            ketiList.push('间传');
+            if (diff1 === 2) {
+                if (chu === '寅') ketiList.push('向阳');
+                else if (chu === '辰') ketiList.push('登天');
+                else if (chu === '午') ketiList.push('出户');
+                else if (chu === '申') ketiList.push('涉渊');
+            }
+        }
+        if ((diff1 === 1 && diff2 === 1) || (diff1 === 11 && diff2 === 11)) {
+            ketiList.push(diff1 === 1 ? '连茹' : '退茹');
+        }
+
+        let scSet = new Set(scZhi);
+        if (scSet.has('申') && scSet.has('子') && scSet.has('辰')) ketiList.push('润下');
+        if (scSet.has('寅') && scSet.has('午') && scSet.has('戌')) ketiList.push('炎上');
+        if (scSet.has('亥') && scSet.has('卯') && scSet.has('未')) ketiList.push('曲直');
+        if (scSet.has('巳') && scSet.has('酉') && scSet.has('丑')) ketiList.push('从革');
+
+        if (scZhi.includes('亥')) ketiList.push('天罗');
+        if (scZhi.includes('巳')) ketiList.push('地网');
+
+        let isMeng = z => ['寅','申','巳','亥'].includes(z);
+        let isJi = z => ['辰','戌','丑','未'].includes(z);
+
+        if (scZhi.every(isMeng)) ketiList.push('玄胎');
+        if (scZhi.every(isJi)) ketiList.push('游子');
+        let sike = r.四课;
+        if (sike[0].upper === '辰' || sike[2].upper === '辰') ketiList.push('斩关');
+
+        let tianShen = env.tShen || {};
+        let chuJiang = tianShen[chu];
+        let moJiang = tianShen[mo];
+        if (chuJiang === '后' && moJiang === '合') ketiList.push('泆女');
+        if (chuJiang === '合' && moJiang === '后') ketiList.push('狡童');
+
+        return ketiList.length > 0 ? ketiList : ["常规局"];
+    }
+};
+
+const UI = {
+    init: () => {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('in_time').value = now.toISOString().slice(0,16);
+        document.getElementById('cfg_engine').value = STATE.config.engine || 'qwen3.6-plus';
+        document.getElementById('cfg_apikey').value = STATE.config.apiKey || '';
+        if(document.getElementById('cfg_baseurl')) document.getElementById('cfg_baseurl').value = STATE.config.baseUrl || '';
+        document.getElementById('cfg_binKey').value = STATE.config.binKey || '';
+        document.getElementById('cfg_binId').value = STATE.config.binId || '';
+        UI.renderCatSelects(); 
+        UI.renderHistoryTabs(); 
+        UI.renderHistoryList();
+    },
+    toast: (msg, isError = false) => {
+        const t = document.getElementById('toast');
+        document.getElementById('toast_icon').innerText = isError ? '❌' : '✅';
+        document.getElementById('toast_msg').innerText = msg;
+        t.className = isError ? 'show error' : 'show';
+        setTimeout(() => t.classList.remove('show', 'error'), 2500);
+    },
+    resetState: () => {
+        STATE.currentRun = null;
+        STATE.activeRecordId = null;
+        document.getElementById('view_board').classList.add('hidden');
+        document.getElementById('btn_ai').classList.add('hidden');
+        document.getElementById('btn_copy').classList.add('hidden');
+        document.getElementById('btn_save').classList.add('hidden');
+        document.getElementById('ui-recat-box').classList.add('hidden');
+        document.getElementById('out_bifa_sniffer').classList.add('hidden');
+        if(STATE.chartInstance) STATE.chartInstance.destroy();
+    },
+
+    renderBigDataRadar: async (catId, currentMatter = '') => {
+        const radarBox = document.getElementById('view_case_radar');
+        radarBox.classList.remove('hidden'); 
+
+        let dbData = null;
+        try { if (typeof LIUREN_CASES_DB !== 'undefined') dbData = LIUREN_CASES_DB; } catch(e){}
+        if (!dbData && typeof window.LIUREN_CASES_DB !== 'undefined') dbData = window.LIUREN_CASES_DB;
+        
+        if (!dbData) {
+            document.getElementById('radar_content_area').innerHTML = '<div style="padding: 20px; width: 100%; text-align: center; color: #9ca3af;">案例库未挂载或为空。</div>';
+            return;
+        }
+
+        let db = Array.isArray(dbData) ? dbData : (dbData.history || []);
+        let filteredDb = db.filter(x => x.catId === catId);
+        let isFallback = false;
+        
+        if (filteredDb.length === 0 && db.length > 0) { filteredDb = db; isFallback = true; }
+        if (currentMatter) {
+            filteredDb.sort((a, b) => {
+                let scoreA = a.matter.includes(currentMatter) ? 1 : 0;
+                let scoreB = b.matter.includes(currentMatter) ? 1 : 0;
+                return scoreB - scoreA;
+            });
+        }
+
+        if (filteredDb.length === 0) return;
+
+        const radarTitle = document.getElementById('radar_title');
+        if (radarTitle) {
+            radarTitle.innerHTML = isFallback ?
+            `📊 历史案例触发准确率看板 <span style="font-size:12px; font-weight:normal; color:#6b7280; background:#f3f4f6; padding:2px 6px; border-radius:4px;">(兜底)</span>` : `📊 历史案例触发准确率看板`;
+        }
+
+        document.getElementById('radar_content_area').innerHTML = `
+            <div class="chart-container w-full md:w-1/3" style="height: 220px; min-height: 220px;"><canvas id="casePieChart"></canvas></div>
+            <div id="case_radar_list" class="custom-scrollbar w-full md:w-2/3" style="max-height: 250px; overflow-y: auto; font-size: 12px; display: flex; flex-direction: column; gap: 8px;"></div>
+        `;
+        let win = 0, partial = 0, loss = 0;
+        filteredDb.forEach(r => {
+            const res = r.actualRes?.result || r.res;
+            if (res && (res.includes('准确') || res === 'win')) win++;
+            else if (res && (res.includes('如对') || res === 'partial')) partial++;
+            else if (res && (res.includes('失误') || res === 'loss')) loss++;
+        });
+        const ctxEl = document.getElementById('casePieChart');
+        if (ctxEl) {
+            const ctx = ctxEl.getContext('2d');
+            if (STATE.radarChart) STATE.radarChart.destroy();
+            STATE.radarChart = new Chart(ctx, {
+                type: 'pie',
+                data: { labels: ['准确', '如对', '失误'], datasets: [{ data: [win, partial, loss], backgroundColor: ['#10b981', '#f59e0b', '#ef4444'], borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11, family: "'Noto Serif SC'" } } } } }
+            });
+        }
+
+        const listEl = document.getElementById('case_radar_list');
+        if (listEl) {
+            listEl.innerHTML = filteredDb.slice(0, 15).map(r => `
+                <div style="background: #fdfaf6; padding: 10px; border-radius: 8px; border: 1px solid #e7e5e4;">
+                    <div style="font-weight: bold; color: #1f2937; margin-bottom: 6px; display: flex; justify-content: space-between;">
+                        <span>${r.matter || '未命名测局'}</span>
+                        <span style="color: #9ca3af; font-weight: normal; font-size: 10px;">${r.time || ''}</span>
+                    </div>
+                    <div style="color: #4b5563; margin-bottom: 4px;">历史实战反馈: <strong style="color: ${(r.actualRes?.result || r.res || '').includes('准确') || r.res==='win' ? '#10b981' : (r.actualRes?.result || r.res || '').includes('失误') || r.res==='loss' ? '#ef4444' : '#f59e0b'};">${r.actualRes?.result || r.res || '-'}</strong></div>
+                    ${r.review ? `<div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d1d5db; color: #8C2131; font-size: 11px;">核心复盘: ${r.review}</div>` : ''}
+                </div>
+            `).join('');
+        }
+    },
+
+    renderBoard: (data) => {
+        document.getElementById('view_board').classList.remove('hidden');
+        document.getElementById('btn_ai').classList.remove('hidden');
+        document.getElementById('btn_copy').classList.remove('hidden');
+        let m = data.Meta;
+        document.getElementById('out_matter').innerText = m.Matter || "未命名测局";
+        document.getElementById('out_bazi').innerText = m.BaZi || "";
+        document.getElementById('out_meta_extra').innerText = `月将: ${m.YueJiang}将 | 空亡: ${m.KongWang} | 本命: ${m.NianMing} | 行年: ${m.XingNian}`;
+        
+        const ketiTags = m.KeTiRaw ? m.KeTiRaw : m.KeTi.split('，').filter(k => k.replace('。',''));
+        document.getElementById('out_keti').innerHTML = ketiTags.map(k => `<span class="keti-tag">${k.replace('。','')}</span>`).join('');
+        document.getElementById('out_rule').innerText = `基础法则: ${data.CoreLogic.发用决定法则} ${data.CoreLogic.克贼类型 !== '无' ? data.CoreLogic.克贼类型 : ''}`;
+        
+        // 【动态重算引擎】：防御旧记录的 ShenSha: [] 脏数据
+        const fixSS = (zhi, existing) => {
+            if (existing && existing.length > 0) return existing;
+            if (!data.Context || !data.Context.ssCtx) return [];
+            return SHENSHA.run(zhi, data.Context.ssCtx);
+        };
+
+        document.getElementById('out_sanchuan').innerHTML = data.SanChuan.map(c => {
+            const finalSS = fixSS(c.Zhi, c.ShenSha);
+            return `
+            <div style="background: #f9fafb; padding: 8px 16px; border-radius: 8px; border: 1px solid #f3f4f6; width: 100%; display: flex; flex-direction: column; gap: 4px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="color: #9ca3af; font-size: 12px; width: 24px;">${c.Pos}</span>
+                        <span style="font-size: 24px; font-weight: 900; color: ${c.IsKW ? '#9ca3af' : '#1f2937'}; position: relative;">
+                            ${c.Zhi}${c.IsKW ? '<span style="position: absolute; top: -4px; right: -12px; font-size: 10px; background: #e5e7eb; color: #6b7280; padding: 0 2px; border-radius: 2px;">空</span>' : ''}
+                        </span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                        <span style="font-size: 14px; font-weight: bold; color: ${c.Qin === '官' ? '#dc2626' : c.Qin === '财' ? '#16a34a' : c.Qin === '父' ? '#2563eb' : '#4b5563'}">${c.Qin}</span>
+                        <span style="font-size: 12px; color: #6b7280;">${c.Jiang}</span>
+                    </div>
+                </div>
+                ${finalSS.length > 0 ? `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:2px;">${finalSS.slice(0, 6).map(s => `<span style="font-size:10px; background:#fff1f2; color:#be123c; border:1px solid #fecdd3; padding:2px 4px; border-radius:4px; line-height: 1;">${s}</span>`).join('')}</div>` : ''}
+            </div>`
+        }).join('');
+
+        document.getElementById('out_sike').innerHTML = [...data.SiKe].reverse().map((k, i) => {
+            const finalTopSS = fixSS(k.Top, k.TopShenSha);
+            const finalBotSS = fixSS(k.Bottom, k.BotShenSha);
+            return `
+            <div style="display: flex; flex-direction: column; align-items: center; background: #f9fafb; padding: 8px; border-radius: 8px; border: 1px solid #f3f4f6; min-width: 50px; position: relative;">
+                <span style="font-size: 10px; color: #9ca3af; margin-bottom: 4px; border-bottom: 1px solid #e5e7eb; width: 100%; text-align: center; padding-bottom: 2px;">第${4-i}课</span>
+                <span style="font-size: 12px; font-weight: bold; color: #6b7280; margin-bottom: 4px;">${k.TopJiang}</span>
+                <span style="font-size: 20px; font-weight: bold; color: ${k.IsTopKW ? '#9ca3af' : '#1f2937'}; position: relative;">
+                    ${k.Top}${k.IsTopKW ? '<span style="position: absolute; top: -4px; right: -8px; font-size: 8px; background: #e5e7eb; color: #6b7280; padding: 0 2px; border-radius: 2px;">空</span>' : ''}
+                </span>
+                ${finalTopSS.length > 0 ? `<div style="display:flex; flex-wrap:wrap; justify-content:center; gap:2px; margin-top:4px;">${finalTopSS.slice(0,3).map(s => `<span style="font-size:9px; color:#be123c; background:#fff1f2; border-radius:2px; padding:1px 2px;">${s}</span>`).join('')}</div>` : ''}
+                <div style="width: 100%; border-bottom: 1px solid #e5e7eb; margin: 4px 0;"></div>
+                <span style="font-size: 20px; font-weight: bold; color: ${k.IsBotKW ? '#9ca3af' : '#8C2131'}; position: relative;">
+                    ${k.Bottom}${k.IsBotKW ? '<span style="position: absolute; top: -4px; right: -8px; font-size: 8px; background: #e5e7eb; color: #6b7280; padding: 0 2px; border-radius: 2px;">空</span>' : ''}
+                </span>
+                <span style="font-size: 12px; font-weight: bold; color: #9ca3af; margin-top: 4px;">${k.BotJiang ? k.BotJiang : (k.BotDun ? '('+k.BotDun+')' : '-')}</span>
+                ${finalBotSS.length > 0 ? `<div style="display:flex; flex-wrap:wrap; justify-content:center; gap:2px; margin-top:4px;">${finalBotSS.slice(0,3).map(s => `<span style="font-size:9px; color:#be123c; background:#fff1f2; border-radius:2px; padding:1px 2px;">${s}</span>`).join('')}</div>` : ''}
+            </div>`
+        }).join('');
+
+        const gridOrder = ['巳', '午', '未', '申', '辰', null, null, '酉', '卯', null, null, '戌', '寅', '丑', '子', '亥'];
+        const grid = document.getElementById('out_pan'); 
+        grid.innerHTML = '';
+        
+        gridOrder.forEach(zhi => {
+            const el = document.createElement('div');
+            if(!zhi){ el.className = 'pan-cell-empty'; } else {
+                const cell = data.TianDiPan.find(x => x.DiPan === zhi);
+                el.className = 'pan-cell';
+                const isChu = data.SanChuan[0].Zhi === cell.TianPan;
+                const isZhong = data.SanChuan[1].Zhi === cell.TianPan;
+                const isMo = data.SanChuan[2].Zhi === cell.TianPan;
+                let marker = '';
+                if (isChu) marker = '初'; else if (isZhong) marker = '中'; else if (isMo) marker = '末';
+                el.innerHTML = `<span style="position: absolute; top: 4px; left: 4px; font-size: 10px; color: #8C2131; font-weight: bold;">${cell.TianJiang}</span>
+                                ${marker ? `<span style="position: absolute; top: 4px; left: 24px; font-size: 10px; color: #ea580c; font-weight: bold;">${marker}</span>` : ''}
+                                <span style="font-size: 20px; font-weight: 900; color: ${cell.IsKW ? '#d1d5db' : '#1f2937'};">${cell.TianPan}</span>
+                                ${cell.DunGan ? `<span style="position: absolute; bottom: 4px; left: 4px; font-size: 10px; color: #9ca3af;">(${cell.DunGan})</span>` : ''}
+                                <span style="position: absolute; bottom: 4px; right: 4px; font-size: 10px; color: #9ca3af;">${zhi}</span>`;
+            }
+            grid.appendChild(el);
+        });
+
+        UI.renderChart(data);
+        UI.renderBifaSniffer(data);
+        UI.renderBigDataRadar(document.getElementById('in_cat').value, document.getElementById('in_matter').value);
+    },
+
+    renderBifaSniffer: (data) => {
+        const snifferBox = document.getElementById('out_bifa_sniffer');
+        const contentBox = document.getElementById('bifa_sniffer_content');
+        if (!snifferBox || !contentBox) return;
+        
+        const rawFetched = data.BifaRulesRaw || [];
+        if (rawFetched.length === 0) {
+            contentBox.innerHTML = '<div style="color:#9ca3af; font-style:italic;">当前局基准结构未直接触发《毕法赋》主干独立微言条目，请依托下方五行生克分布直观审断。</div>';
+            snifferBox.classList.remove('hidden');
+            return;
+        }
+        
+        let renderedHTML = '';
+        const bifaRulesDict = window.BIFA_100_RULES || {};
+        rawFetched.forEach((r) => {
+            const ruleName = typeof r === 'string' ? r : (r.name || '底层赋文指引');
+            const ruleText = typeof r === 'string' ? '遵循天地盘常规五行能量互化流转。' : (r.text || r.desc || '');
+            const ruleKey = Object.keys(bifaRulesDict).find(k => ruleName.includes(k) || k.includes(ruleName));
+            const targetDef = ruleKey ? bifaRulesDict[ruleKey] : null;
+
+            renderedHTML += `
+            <div style="background: white; padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e7eb; border-left: 3px solid #8C2131;">
+                <div style="font-weight: bold; color: #1f2937; margin-bottom: 4px;">📜 ${ruleName}</div>
+                <div style="color: #4b5563; margin-bottom: 4px;"><strong>原微言义：</strong>${ruleText}</div>
+                ${targetDef ? `<div style="color: #b45309; font-size: 11px;"><strong>防线：</strong>${targetDef.defenseLine}</div>` : ''}
+            </div>`;
+        });
+        contentBox.innerHTML = renderedHTML;
+        snifferBox.classList.remove('hidden');
+    },
+
+    renderChart: (data) => {
+        const ctx = document.getElementById('elementChart').getContext('2d');
+        if(STATE.chartInstance) STATE.chartInstance.destroy();
+        const counts = {'金':0,'木':0,'水':0,'火':0,'土':0};
+        data.SanChuan.forEach(x => counts[ALGO.getWX(x.Zhi)] += 2);
+        data.SiKe.forEach(x => { counts[ALGO.getWX(x.Top)]++; counts[ALGO.getWX(x.Bottom)]++; });
+        STATE.chartInstance = new Chart(ctx, {
+            type: 'radar',
+            data: { labels: ['金', '木', '水', '火', '土'], datasets: [{ data: [counts['金'], counts['木'], counts['水'], counts['火'], counts['土']], backgroundColor: 'rgba(140, 33, 49, 0.2)', borderColor: 'rgba(140, 33, 49, 0.8)', borderWidth: 2 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { r: { ticks: { display: false } } }, plugins: { legend: { display: false } } }
+        });
+    },
+
+    renderCatSelects: () => {
+        const opts = STATE.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        document.getElementById('in_cat').innerHTML = opts;
+        document.getElementById('reCatSelect').innerHTML = opts;
+    },
+
+    renderHistoryTabs: () => {
+        const tb = document.getElementById('history_tabs');
+        let html = `<button data-cat="all" style="padding: 6px 16px; border-radius: 99px; font-size: 14px; font-weight: bold; border: 1px solid #e5e7eb; cursor: pointer; background: ${STATE.filterCat === 'all' ? '#8C2131' : 'white'}; color: ${STATE.filterCat === 'all' ? 'white' : '#4b5563'};">全部</button>`;
+        const isMacro = STATE.filterCat === 'macro_sports';
+        html += `<button data-cat="macro_sports" style="padding: 6px 16px; border-radius: 99px; font-size: 14px; font-weight: bold; border: 1px solid #e5e7eb; cursor: pointer; background: ${isMacro ? '#8C2131' : 'white'}; color: ${isMacro ? 'white' : '#4b5563'};">🏆 赛事汇总(大类)</button>`;
+        STATE.categories.forEach(c => { 
+            html += `<button data-cat="${c.id}" style="padding: 6px 16px; border-radius: 99px; font-size: 14px; font-weight: bold; border: 1px solid #e5e7eb; cursor: pointer; background: ${STATE.filterCat === c.id ? '#8C2131' : 'white'}; color: ${STATE.filterCat === c.id ? 'white' : '#4b5563'};">${c.name.split(' ')[0] || c.name}</button>`; 
+        });
+        tb.innerHTML = html;
+    },
+
+    updateStats: () => {
+        const term = STATE.historySearchTerm ? STATE.historySearchTerm.toLowerCase() : '';
+        let db = STATE.filterCat === 'all' ? STATE.history : 
+                   (STATE.filterCat === 'macro_sports' ? STATE.history.filter(x => ['basket', 'soccer', 'esport'].includes(getDomainType(x.catId, x.matter))) : STATE.history.filter(x => x.catId === STATE.filterCat));
+        if (term) db = db.filter(r => (r.matter && r.matter.toLowerCase().includes(term)) || (r.review && r.review.toLowerCase().includes(term)));
+        
+        let doneCount = 0;
+        const sources = ['LocalAI', 'DeepSeek', 'Gemini', 'Qwen', 'GLM'];
+        const stats = { LocalAI: { valid: 0, winHits: 0, perfectHits: 0 }, DeepSeek: { valid: 0, winHits: 0, perfectHits: 0 }, Gemini: { valid: 0, winHits: 0, perfectHits: 0 }, Qwen: { valid: 0, winHits: 0, perfectHits: 0 }, GLM: { valid: 0, winHits: 0, perfectHits: 0 } };
+        
+        const curDomain = STATE.filterCat === 'all' ? 'mixed' : (STATE.filterCat === 'macro_sports' ? 'sports_macro' : getDomainType(STATE.filterCat));
+        const isQuantDomain = ['basket', 'soccer', 'esport', 'sports_macro', 'stock'].includes(curDomain);
+
+        db.forEach(r => {
+            let hasProcessed = false;
+            const actual = r.actualRes || { dir: '', diff: '', result: 'pending' };
+            const rDomain = getDomainType(r.catId, r.matter);
+
+            sources.forEach(src => {
+                const ai = (r.aiResults && r.aiResults[src]) ? r.aiResults[src] : { result: 'pending', dir: '', diff: '' };
+                let manualRes = ai.result || (ai.res || 'pending');
+
+                if (rDomain === 'stock') {
+                    if (actual.amp && actual.amp !== '') {
+                        stats[src].valid++;
+                        hasProcessed = true;
+                        const isPos = v => v.includes('涨') || v.includes('红') || v.includes('阳');
+                        const isNeg = v => v.includes('跌') || v.includes('绿') || v.includes('阴');
+                        let actualDir = isPos(actual.amp) ? 1 : (isNeg(actual.amp) ? -1 : 0);
+                        let aiDir = ai.amp ? (isPos(ai.amp) ? 1 : (isNeg(ai.amp) ? -1 : 0)) : null;
+
+                        if (actualDir === aiDir && aiDir !== null) {
+                            stats[src].winHits++; 
+                            if (ai.traj === actual.traj && ai.high === actual.high && ai.low === actual.low && ai.amp === actual.amp) {
+                                stats[src].perfectHits++; 
+                                manualRes = 'win';
+                            } else {
+                                manualRes = 'partial';
+                            }
+                        } else {
+                            manualRes = 'loss';
+                        }
+                    } else if (manualRes !== 'pending') {
+                        stats[src].valid++;
+                        hasProcessed = true;
+                        if (manualRes.includes('准确') || manualRes === 'win') { stats[src].winHits++; stats[src].perfectHits++; }
+                        else if (manualRes.includes('如对') || manualRes === 'partial') { stats[src].winHits++; }
+                    }
+                }
+                else if (['basket', 'soccer', 'esport'].includes(rDomain)) {
+                    if (actual.dir && actual.dir !== '') {
+                        if (ai.dir && ai.dir !== '') {
+                            stats[src].valid++;
+                            hasProcessed = true;
+                            if (ai.dir === actual.dir) {
+                                stats[src].winHits++;
+                                manualRes = 'win';
+                                if (ai.diff === actual.diff) stats[src].perfectHits++;
+                            } else {
+                                manualRes = 'loss';
+                            }
+                        }
+                    } else if (manualRes !== 'pending') {
+                        stats[src].valid++;
+                        hasProcessed = true;
+                        if (manualRes === 'win') { stats[src].winHits++; stats[src].perfectHits++; }
+                        else if (manualRes === 'partial') { stats[src].winHits++; }
+                    }
+                } else {
+                    if (manualRes !== 'pending') {
+                        stats[src].valid++;
+                        hasProcessed = true;
+                        if (manualRes === 'win') { stats[src].winHits++; stats[src].perfectHits++; }
+                        else if (manualRes === 'partial') { stats[src].winHits += 0.33; }
+                    }
+                }
+            });
+            if (hasProcessed) doneCount++;
+        });
+
+        document.getElementById('stat_total').innerText = db.length; 
+        document.getElementById('stat_done').innerText = doneCount; 
+
+        const getP = (hits, total) => total === 0 ? 0 : Math.round((hits / total) * 100);
+        const activeSources = ['LocalAI', 'DeepSeek', 'Gemini', 'Qwen'];
+        const winRatesData = activeSources.map(s => getP(stats[s].winHits, stats[s].valid));
+        const perfectRatesData = activeSources.map(s => getP(stats[s].perfectHits, stats[s].valid));
+
+        const maxRate = Math.max(...winRatesData, 0);
+        document.getElementById('stat_rate').innerText = maxRate + '%';
+        const titleEl = document.getElementById('dash_chart_title');
+        const modeTagEl = document.getElementById('dash_chart_mode_tag');
+        const descEl = document.getElementById('dash_chart_desc');
+
+        if (titleEl && modeTagEl && descEl) {
+            if (isQuantDomain) {
+                titleEl.innerText = "📊 实时多模态实战胜率看板 (双柱穿透对比阵列)";
+                modeTagEl.innerText = "定量博弈域";
+                descEl.innerText = "独立展示方向性基础判定胜率与极其严苛的定性定量双重全中率";
+            } else {
+                titleEl.innerText = "📊 实战综合准确率看板 (单轨定性穿透)";
+                modeTagEl.innerText = "定性事务域";
+                descEl.innerText = "呈现各源综合实战判定准确度 (准确得分+如对折算)";
+            }
+        }
+
+        const ctxDashEl = document.getElementById('winRateChart');
+        if (!ctxDashEl) return;
+        const ctxDash = ctxDashEl.getContext('2d');
+        if (STATE.dashChart) STATE.dashChart.destroy();
+        
+        const labelsMap = ['本地AI(专家)', 'DeepSeek', 'Gemini', 'Qwen'];
+        if (isQuantDomain) {
+            STATE.dashChart = new Chart(ctxDash, {
+                type: 'bar',
+                data: {
+                    labels: labelsMap,
+                    datasets: [
+                        { label: '基础方向及格率 (%)', data: winRatesData, backgroundColor: '#8C2131', borderRadius: 4, barThickness: 20 },
+                        { label: '绝对定性全中率 (%)', data: perfectRatesData, backgroundColor: '#D97706', borderRadius: 4, barThickness: 20 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100, ticks: { callback: val => val + '%' } } }, plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11, weight: 'bold' } } } } }
+            });
+        } else {
+            STATE.dashChart = new Chart(ctxDash, {
+                type: 'bar',
+                data: { labels: labelsMap, datasets: [{ label: '实战综合准确率 (%)', data: winRatesData, backgroundColor: '#10B981', borderRadius: 6, barThickness: 28 }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 100, ticks: { callback: val => val + '%' } } }, plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11, weight: 'bold' } } } } }
+            });
+        }
+    },
+
+    generateMatrixHTML: (r, curSubTab) => {
+        const domain = getDomainType(r.catId, r.matter);
+        const actual = r.actualRes || { dir: '', diff: '', result: 'pending' };
+        let curTargetObj = actual;
+        if (curSubTab !== 'actual') {
+            curTargetObj = (r.aiResults && r.aiResults[curSubTab]) ? r.aiResults[curSubTab] : { dir: '', diff: '', result: 'pending', text: '' };
+        }
+
+        const dirOptionsBasketEsport = ['主胜', '客胜'];
+        const dirOptionsSoccer = ['主胜', '平局', '客胜'];
+        const diffOptionsBasket = ['1-5分', '6-10分', '11-15分', '16-20分', '21-25分', '26+分'];
+        const diffOptionsSoccer = ['1:0', '2:0', '2:1', '3:0', '3:1', '3:2', '0:0', '1:1', '2:2', '其他'];
+        const diffOptionsEsport = ['2:0', '2:1', '3:0', '3:1', '3:2'];
+        const resultOptionsQualitative = ['✅ 准确', '⭕ 如对', '❌ 失误', '⏳ 待验证'];
+        
+        const trajOptions = ['单边上扬', '冲高回落', '探底回升', '宽幅震荡', '单边阴跌', '窄幅死水'];
+        const highLowOptions = ['早盘(9:30-10)', '盘中(10-14)', '尾盘(14-15)'];
+        const ampOptions = ['大涨6~10%', '中阳3~6%', '小红0~3%', '平盘', '小绿0~-3%', '中阴-3~-6%', '大跌-6~-10%'];
+
+        const renderCapsules = (type, arr, selectedVal) => {
+            return arr.map(item => {
+                let activeClass = '';
+                if (item === selectedVal) {
+                    if (['主胜', '看涨', '大涨6~10%', '中阳3~6%', '小红0~3%'].includes(item)) activeClass = 'active-dir';
+                    else if (['客胜', '看跌', '小绿0~-3%', '中阴-3~-6%', '大跌-6~-10%'].includes(item)) activeClass = 'active-loss';
+                    else if (['平局', '震荡', '平盘', '宽幅震荡'].includes(item)) activeClass = 'active-draw';
+                    else if (item === '✅ 准确') activeClass = 'active-win';
+                    else if (item === '⭕ 如对') activeClass = 'active-partial';
+                    else if (item === '❌ 失误') activeClass = 'active-loss';
+                    else if (item === '⏳ 待验证') activeClass = 'active-match';
+                    else activeClass = 'active-full'; 
+                }
+                return `<button class="capsule-btn ${activeClass}" data-id="${r.id}" data-role="${type}" data-val="${item}">${item}</button>`;
+            }).join('');
+        };
+
+        let matrixHTML = '';
+        if (domain === 'stock') {
+            matrixHTML += `
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:11px; color:#78716c; min-width:60px;">分时轨迹:</span>
+                <div class="capsule-group">${renderCapsules('traj', trajOptions, curTargetObj.traj)}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                <span style="font-size:11px; color:#78716c; min-width:60px;">最高极值:</span>
+                <div class="capsule-group">${renderCapsules('high', highLowOptions, curTargetObj.high)}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                <span style="font-size:11px; color:#78716c; min-width:60px;">最低探底:</span>
+                <div class="capsule-group">${renderCapsules('low', highLowOptions, curTargetObj.low)}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                <span style="font-size:11px; color:#78716c; min-width:60px;">收盘振幅:</span>
+                <div class="capsule-group">${renderCapsules('amp', ampOptions, curTargetObj.amp)}</div>
+            </div>`;
+            
+            // 真实结果下不显示复盘定性
+            if (curSubTab !== 'actual') {
+                matrixHTML += `
+                <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                    <span style="font-size:11px; color:#78716c; min-width:60px;">复盘定性:</span>
+                    <div class="capsule-group">${renderCapsules('result', resultOptionsQualitative, curTargetObj.result || curTargetObj.res || 'pending')}</div>
+                </div>`;
+            }
+        } else if (['basket', 'soccer', 'esport'].includes(domain)) {
+            let optsDir = domain === 'soccer' ? dirOptionsSoccer : dirOptionsBasketEsport;
+            let optsDiff = domain === 'basket' ? diffOptionsBasket : (domain === 'soccer' ? diffOptionsSoccer : diffOptionsEsport);
+            matrixHTML += `
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:11px; color:#78716c; min-width:60px;">胜负判定:</span>
+                <div class="capsule-group">${renderCapsules('dir', optsDir, curTargetObj.dir)}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                <span style="font-size:11px; color:#78716c; min-width:60px;">极值分差:</span>
+                <div class="capsule-group">${renderCapsules('diff', optsDiff, curTargetObj.diff)}</div>
+            </div>`;
+        } else {
+            matrixHTML += `
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:11px; color:#78716c; min-width:60px;">实战定性:</span>
+                <div class="capsule-group">${renderCapsules('result', resultOptionsQualitative, curTargetObj.result || (curTargetObj.res || 'pending'))}</div>
+            </div>`;
+        }
+        return matrixHTML;
+    },
+
+    renderHistoryList: () => {
+        const ls = document.getElementById('history_list');
+        const term = STATE.historySearchTerm ? STATE.historySearchTerm.toLowerCase() : '';
+        let db = STATE.filterCat === 'all' ? STATE.history : 
+                   (STATE.filterCat === 'macro_sports' ? STATE.history.filter(x => ['basket', 'soccer', 'esport'].includes(getDomainType(x.catId, x.matter))) : STATE.history.filter(x => x.catId === STATE.filterCat));
+        if (term) db = db.filter(r => (r.matter && r.matter.toLowerCase().includes(term)) || (r.review && r.review.toLowerCase().includes(term)));
+        
+        UI.updateStats();
+        const catOptionsHTML = STATE.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        
+        ls.innerHTML = db.map(r => {
+            const cn = STATE.categories.find(c => c.id === r.catId)?.name || "未知";
+            const userCatHTML = catOptionsHTML.replace(`value="${r.catId}"`, `value="${r.catId}" selected`);
+            const domain = getDomainType(r.catId, r.matter);
+            const isQuant = ['basket', 'soccer', 'esport', 'stock'].includes(domain);
+            
+            let curSubTab = r.uiSubTab || 'LocalAI';
+            if (!isQuant && curSubTab === 'actual') curSubTab = 'LocalAI';
+
+            const actualTabLabel = isQuant ? '🎯 实际复盘结果' : '🎯 最终事实';
+            const matrixHTML = UI.generateMatrixHTML(r, curSubTab);
+            const isRevOpen = STATE.openReviewIds.has(r.id);
+            const isAIOpen = STATE.openAiBoxIds.has(r.id);
+
+            const aiDS = (r.aiResults && r.aiResults['DeepSeek'] && r.aiResults['DeepSeek'].text) ? r.aiResults['DeepSeek'].text : '<span style="color:#9ca3af;font-style:italic;">暂无推演...</span>';
+            const aiQwen = (r.aiResults && r.aiResults['Qwen'] && r.aiResults['Qwen'].text) ? r.aiResults['Qwen'].text : '<span style="color:#9ca3af;font-style:italic;">暂无推演...</span>';
+            const aiGLM = (r.aiResults && r.aiResults['GLM'] && r.aiResults['GLM'].text) ? r.aiResults['GLM'].text : '<span style="color:#9ca3af;font-style:italic;">暂无推演...</span>';
+
+            return `
+            <div class="history-card" data-id="${r.id}">
+                <div class="history-header">
+                    <div class="history-title">${r.matter || '未定事项'}</div>
+                    <button class="btn-del" style="background:none; border:none; color:#9ca3af; font-size:16px; cursor:pointer;" title="删除">🗑️</button>
+                </div>
+                <div class="history-meta">
+                    <span style="background: #f3f4f6; padding: 2px 8px; border-radius: 4px; border: 1px solid #e5e7eb;">${cn.split(' ')[0] || cn}</span>
+                    <span>${r.time}</span>
+                    <select class="inline-select action-select-cat" data-id="${r.id}" style="margin-left:auto; max-width:140px;">${userCatHTML}</select>
+                </div>
+                
+                <div style="background: #fafaf9; border-radius: 8px; padding: 12px; margin-top: 8px; border: 1px solid #e7e5e4;">
+                    <div class="capsule-tabs" style="display:flex; flex-wrap:wrap; gap:4px; border-bottom:1px solid #e5e7eb; padding-bottom:8px; margin-bottom:8px;">
+                        ${isQuant ? `<button class="capsule-btn ${curSubTab === 'actual' ? 'active-match' : ''}" data-id="${r.id}" data-role="switch" data-val="actual">${actualTabLabel}</button>` : ''}
+                        <button class="capsule-btn ${curSubTab === 'LocalAI' ? 'active-match' : ''}" data-id="${r.id}" data-role="switch" data-val="LocalAI">🧑‍💻 本地AI</button>
+                        <button class="capsule-btn ${curSubTab === 'DeepSeek' ? 'active-match' : ''}" data-id="${r.id}" data-role="switch" data-val="DeepSeek">🤖 DeepSeek</button>
+                        <button class="capsule-btn ${curSubTab === 'Gemini' ? 'active-match' : ''}" data-id="${r.id}" data-role="switch" data-val="Gemini">🤖 Gemini</button>
+                        <button class="capsule-btn ${curSubTab === 'Qwen' ? 'active-match' : ''}" data-id="${r.id}" data-role="switch" data-val="Qwen">🤖 Qwen</button>
+                        <button class="capsule-btn ${curSubTab === 'GLM' ? 'active-match' : ''}" data-id="${r.id}" data-role="switch" data-val="GLM">🤖 GLM</button>
+                    </div>
+                    <div class="matrix-container" style="display:flex; flex-direction:column; gap:8px;">${matrixHTML}</div>
+                </div>
+
+                <div class="history-actions" style="justify-content: space-between; margin-top: 8px; padding-top: 8px;">
+                    <button class="action-view-ai" style="font-size: 12px; padding: 6px 12px; background: ${isAIOpen ? '#e5e7eb' : 'transparent'}; border: 1px solid #e5e7eb; border-radius: 4px; cursor: pointer; font-weight: bold; color: #8C2131;" data-id="${r.id}">🔍 折叠/展开 AI 推演</button>
+                    <button class="action-toggle-review" style="font-size: 12px; padding: 6px 12px; background: ${isRevOpen ? '#e5e7eb' : '#f3f4f6'}; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; font-weight: bold; color: #4b5563;" data-id="${r.id}">📝 宽幅复盘笔记</button>
+                </div>
+
+                <div id="history-ai-box-${r.id}" class="${isAIOpen ? '' : 'hidden'}" style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #d1d5db;">
+                    <div class="ai-split-container custom-scrollbar" style="max-height: 350px;">
+                        <div class="ai-panel" style="min-width: 250px; flex: 1;">
+                            <div class="ai-panel-header deepseek" style="padding: 8px; font-size: 12px;">DeepSeek-V3</div>
+                            <div class="ai-panel-body custom-scrollbar" id="card_stream_deepseek_${r.id}" style="padding: 8px; font-size: 12px;">${aiDS}</div>
+                        </div>
+                        <div class="ai-panel" style="min-width: 250px; flex: 1;">
+                            <div class="ai-panel-header qwen" style="padding: 8px; font-size: 12px;">Qwen Max</div>
+                            <div class="ai-panel-body custom-scrollbar" id="card_stream_qwen_${r.id}" style="padding: 8px; font-size: 12px;">${aiQwen}</div>
+                        </div>
+                        <div class="ai-panel" style="min-width: 250px; flex: 1;">
+                            <div class="ai-panel-header glm" style="padding: 8px; font-size: 12px;">GLM-4</div>
+                            <div class="ai-panel-body custom-scrollbar" id="card_stream_glm_${r.id}" style="padding: 8px; font-size: 12px;">${aiGLM}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="review-box-${r.id}" class="${isRevOpen ? '' : 'hidden'}" style="margin-top: 12px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; transition: all 0.2s;">
+                    <textarea id="review-text-${r.id}" style="width: 100%; font-size: 13px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; background: white; resize: vertical; min-height: 80px;" rows="4" placeholder="在此输入高维深度复盘笔记。注：系统永久保留最高真理覆写权。若判定失误且存在复盘，该结论将绝对凌驾于常规推理逻辑之上...">${r.review || ''}</textarea>
+                    <div style="text-align: right; margin-top: 8px;">
+                        <button class="action-save-review" style="font-size: 12px; padding: 6px 16px; background: #8C2131; color: white; border-radius: 4px; font-weight: bold; border: none; cursor: pointer;" data-id="${r.id}">💾 固化真理覆写</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+};
+
+const BIZ = {
+    sniffV6Rules: (core, ctx, gan) => {
+        let hits = [];
+        const chu = core.三传.初传, zhong = core.三传.中传, mo = core.三传.末传;
+        const scSet = new Set([chu, zhong, mo]);
+        const isMu = z => ['辰','戌','丑','未'].includes(z);
+        
+        if ((scSet.has('申') && scSet.has('子') && scSet.has('辰')) ||
+            (scSet.has('寅') && scSet.has('午') && scSet.has('戌')) ||
+            (scSet.has('亥') && scSet.has('卯') && scSet.has('未')) ||
+            (scSet.has('巳') && scSet.has('酉') && scSet.has('丑'))) {
+            hits.push("[Priority 0 级碾压] 三合局：极其完美的团队化学反应，无差别降维打击！如果合局方不被母慈灭子反噬，必大比分碾压。");
+        }
+        if (isMu(chu) && isMu(zhong) && isMu(mo)) {
+            hits.push("[Priority 0 级碾压] 稼穑/四墓库深渊：满盘土气压抑，受克或生扶方将被单向物理降维打击，极度压榨体能，大概率出现大屠杀或单边阴跌。");
+        }
+        if (isMu(chu) && isMu(zhong) && isMu(mo) && (scSet.has('丑') || scSet.has('未') || scSet.has('辰') || scSet.has('戌'))) {
+            if (core.九宗门路由变量.发用决定法则 === '游子') {
+                hits.push("[补丁18] 游子发散降维：在四墓库碾压基础上触发，聚歼动能向外逸散，主导方的控制力出现裂痕，分差或振幅将被强制收束，撤销极大屠杀预警。");
+            }
+        }
+
+        const chuQin = BIZ.getLiuQin(gan, chu);
+        const zhongQin = BIZ.getLiuQin(gan, zhong);
+        const moQin = BIZ.getLiuQin(gan, mo);
+        const method = core.九宗门路由变量.发用决定法则;
+
+        if (ctx.kw.includes(chu)) {
+            if (chuQin === '父') hits.push("[补丁02] 父母爻空亡法则：代表战术板与教练组(或股市基本面)瘫痪，陷入无序的盲目乱战与单打独斗，防线极易崩塌。");
+            else hits.push("[补丁02变种] 初传空亡：开局发生结构性物理断电。");
+        }
+        if (chuQin === '官' && (zhongQin === '父' || moQin === '父')) {
+            hits.push("[补丁15] 鬼化印反制门控：初传高压防守(官鬼)，后被父母化解并生身。被压制方将完美吸收防守压力，转化为自身的战术执行力，下半场/后段强制逆转破局！");
+        }
+        if (method === '伏吟') {
+            if (chuQin === '兄' && moQin === '兄') {
+                hits.push("[补丁16] 伏吟双兄对飚法则：强制撤销伏吟常规的降速结界。比赛转化为无视环境的极致对飚肉搏，全场不会出现垃圾时间！");
+            } else {
+                hits.push("[补丁08] 伏吟深渊常规降速：全盘伏吟，动能凝滞温水煮青蛙，抹杀起势波澜。");
+            }
+        }
+        if (method === '涉害' || method === '斩关') {
+            hits.push("[补丁07] 涉害斩关法则：强行把事件拖入泥沼绞肉机模式。绝对阻断一波流，分差死锁在个位数（股市死锁在窄幅震荡）。");
+        }
+
+        if (hits.length > 0) {
+            return `<Physics_Engine_Hits>\n【⚠️ 前端物理级特征嗅探拦截报告】\n本局触发以下 V6.2 核心底层物理补丁，请放弃常规理论，**绝对服从**并以此为基准展开推演：\n${hits.join('\n')}\n</Physics_Engine_Hits>`;
+        }
+        return "";
+    },
+
+    getLiuQin: (gan, zhi) => { 
+        let ganWX = WUXING[gan], zhiWX = WUXING[zhi];
+        if (ganWX === zhiWX) return '兄';
+        if (isKe(ganWX, zhiWX)) return '财';
+        if (isKe(zhiWX, ganWX)) return '官';
+        const shengMap = {'金':'水', '水':'木', '木':'火', '火':'土', '土':'金'};
+        if (shengMap[ganWX] === zhiWX) return '子';
+        if (shengMap[zhiWX] === ganWX) return '父';
+        return '?';
+    },
+
+    calcPan: () => {
+        UI.resetState();
+        const timeVal = document.getElementById('in_time').value;
+        if(!timeVal) return UI.toast("请选择起课时间", true);
+        
+        const lon = parseFloat(document.getElementById('in_longitude').value) || 120;
+        const offsetMinutes = (lon - 120) * 4;
+        const baseDateObj = new Date(timeVal.replace('T', ' ').replace(/-/g, '/'));
+        const dateObj = new Date(baseDateObj.getTime() + offsetMinutes * 60000);
+        const lunar = Lunar.fromDate(dateObj); 
+        const bz = lunar.getEightChar();
+        const yGz = bz.getYear(), mGz = bz.getMonth(), dGz = bz.getDay(), hGz = bz.getTime();
+        const gan = dGz.charAt(0), zhi = dGz.charAt(1), shi = hGz.charAt(1);
+        
+        const gender = document.getElementById('in_gender').value;
+        const birthYear = parseInt(document.getElementById('in_birthyear').value) || 1991;
+        const nianMingGz = GANZHI[(birthYear - 4 + 60) % 60];
+        const xuSui = dateObj.getFullYear() - birthYear + 1;
+        const xingNianGz = gender === '男' ? GANZHI[(GANZHI.indexOf('丙寅') + xuSui - 1) % 60] : GANZHI[(GANZHI.indexOf('壬申') - xuSui + 1 + 60) % 60];
+        let jiang = JIEQI_JIANG[lunar.getPrevJieQi(true).getName()];
+        
+        const dGzIdx = GANZHI.indexOf(dGz); 
+        const xunStartIdx = dGzIdx - (dGzIdx % 10);
+        const xsZhiIdx = DI_ZHI.indexOf(GANZHI[xunStartIdx].charAt(1));
+        const kwArr = [DI_ZHI[(xsZhiIdx + 10) % 12], DI_ZHI[(xsZhiIdx + 11) % 12]];
+        const xunDun = {};
+        for(let i=0; i<10; i++) xunDun[GANZHI[xunStartIdx + i].charAt(1)] = GANZHI[xunStartIdx + i].charAt(0);
+        
+        const core = ALGO.run(gan, zhi, jiang, shi);
+        const tp = core.天地盘;
+
+        const hIdx = DI_ZHI.indexOf(shi);
+        const isDay = (hIdx >= 3 && hIdx <= 8);
+        const guiZhi = isDay ? GUI_RULES[gan].d : GUI_RULES[gan].n;
+        const dpIdx = DI_ZHI.indexOf(Object.keys(tp).find(key => tp[key] === guiZhi));
+        const isForward = [11,0,1,2,3,4].includes(dpIdx);
+        const tShen = {}; 
+        const guiTpIdx = DI_ZHI.indexOf(guiZhi);
+        for(let i=0; i<12; i++) tShen[DI_ZHI[(guiTpIdx + (isForward ? i : 12-i)) % 12]] = GODS[i];
+
+        const taiSui = yGz.charAt(1);
+        const yueJian = mGz.charAt(1);
+        const todayJieQi = lunar.getJieQi();
+        const isSiLiRi = ['立春', '立夏', '立秋', '立冬'].includes(todayJieQi);
+        const zuoRiGz = lunar.next(-1).getEightChar().getDay();
+        
+        let seasonStr = '春', seasonWX = '木';
+        if (['寅','卯','辰'].includes(yueJian)) { seasonStr = '春'; seasonWX = '木'; }
+        else if (['巳','午','未'].includes(yueJian)) { seasonStr = '夏'; seasonWX = '火'; }
+        else if (['申','酉','戌'].includes(yueJian)) { seasonStr = '秋'; seasonWX = '金'; }
+        else if (['亥','子','丑'].includes(yueJian)) { seasonStr = '冬'; seasonWX = '水'; }
+
+        const nianGan = yGz.charAt(0);
+        const xunShou = GANZHI[xunStartIdx];
+        const ssCtx = { taiSui, nianGan, yueJian, riGan: gan, riZhi: zhi, seasonStr, xunShou, kw: kwArr, tShen };
+        const env = { ...ssCtx, nianMing: nianMingGz.charAt(1), xingNian: xingNianGz.charAt(1), yueJiang: jiang, shi: shi, isSiLiRi: isSiLiRi, zuoRiGan: zuoRiGz.charAt(0), zuoRiZhi: zuoRiGz.charAt(1), seasonWX: seasonWX };
+        
+        const matchedRules = ALGO.matchRule(core, gan, zhi, env);
+        if (kwArr.includes(core.三传.初传)) matchedRules.push("孤寡课(初空)");
+        const juIdx = (DI_ZHI.indexOf(shi) - DI_ZHI.indexOf(jiang) + 12) % 12;
+        const juStr = ['一','二','三','四','五','六','七','八','九','十','十一','十二'][juIdx] + "局";
+        const bifaRulesFetched = BIFA_ENGINE.getRules(gan + zhi, juStr);
+        
+        const result = {
+            Context: { gan, zhi, kwArr, tShen, xunDun, ssCtx }, 
+            Meta: { Matter: document.getElementById('in_matter').value || '未命名测局', Time: timeVal.replace('T', ' '), BaZi: `${yGz}年 ${mGz}月 ${dGz}日 ${hGz}时`, YueJiang: jiang, KongWangArr: kwArr, KongWang: kwArr.join(''), Gender: gender, NianMing: nianMingGz, XingNian: xingNianGz, KeTi: matchedRules.join('，') + '。', KeTiRaw: matchedRules, JuShu: juStr },
+            SanChuan: ['初传','中传','末传'].map(pos => { 
+                const z = core.三传[pos]; 
+                const obj = { Pos: pos, Zhi: z, Qin: BIZ.getLiuQin(gan, z), Jiang: tShen[z] };
+                if(xunDun[z]) obj.Dun = xunDun[z]; 
+                if(kwArr.includes(z)) obj.IsKW = true; 
+                obj.ShenSha = SHENSHA.run(z, ssCtx); 
+                return obj;
+            }),
+            SiKe: core.四课.map((s, i) => { 
+                const botZhi = s.isGan ? JIGONG[s.lower] : s.lower;
+                const obj = { Index: i, Top: s.upper, Bottom: s.lower, isGan: s.isGan, TopJiang: tShen[s.upper] };
+                if (i === 0 || i === 2) { obj.BotJiang = tShen[botZhi]; }
+                if(xunDun[s.upper]) obj.TopDun = xunDun[s.upper];
+                if(s.isGan) obj.BotJiGong = botZhi;
+                if(xunDun[botZhi]) obj.BotDun = xunDun[botZhi]; 
+                if(kwArr.includes(s.upper)) obj.IsTopKW = true; 
+                if(kwArr.includes(botZhi)) obj.IsBotKW = true;
+                obj.TopShenSha = SHENSHA.run(s.upper, ssCtx);
+                obj.BotShenSha = SHENSHA.run(botZhi, ssCtx); 
+                return obj;
+            }),
+            TianDiPan: DI_ZHI.map(z => { 
+                const tpan = tp[z]; 
+                const obj = { DiPan: z, TianPan: tpan, TianJiang: tShen[tpan] };
+                if(xunDun[tpan]) obj.DunGan = xunDun[tpan];
+                if(kwArr.includes(tpan)) obj.IsKW = true; 
+                return obj;
+            }),
+            CoreLogic: core.九宗门路由变量,
+            BifaRulesRaw: bifaRulesFetched,
+            aiResults: { 
+                'LocalAI': { result: 'pending', dir: '', diff: '', text: '' }, 
+                'DeepSeek': { result: 'pending', dir: '', diff: '', text: '' }, 
+                'Gemini': { result: 'pending', dir: '', diff: '', text: '' }, 
+                'Qwen': { result: 'pending', dir: '', diff: '', text: '' },
+                'GLM': { result: 'pending', dir: '', diff: '', text: '' }
+            },
+            actualRes: { dir: '', diff: '', result: 'pending' },
+            uiSubTab: 'actual'
+        };
+        STATE.currentRun = result;
+        UI.renderBoard(result);
+        document.getElementById('btn_save').classList.remove('hidden');
+        UI.toast('物理排盘完成');
+        if (typeof UI.renderBigDataRadar === 'function') UI.renderBigDataRadar(document.getElementById('in_cat').value, document.getElementById('in_matter').value);
+    },
+
+    formatAIText: (raw) => {
+        let formatted = raw;
+        const conMatch = formatted.match(/<结论>([\s\S]*?)<\/结论>/);
+        const proMatch = formatted.match(/<推演过程>([\s\S]*?)<\/推演过程>/);
+        if (conMatch || proMatch) {
+            const c = conMatch ? conMatch[1].trim() : "";
+            const p = proMatch ? proMatch[1].trim() : formatted;
+            return `
+            <div style="background: #fff5f5; border: 1px solid #8C2131; border-radius: 8px; padding: 12px; margin-bottom: 12px; border-left: 4px solid #8C2131;">
+                <div style="color: #8C2131; font-weight: bold; margin-bottom: 4px;">🎯 核心定性结论</div>
+                <div style="font-size:14px; line-height:1.6;">${c.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</div>
+            </div>
+            <div style="font-size: 13px;">${p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</div>`;
+        }
+        return raw.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+    },
+
+    fetchStream: async (url, key, model, sysPrompt, usrPrompt, targetElId, aiSrcName) => {
+        const el = document.getElementById(targetElId);
+        if(!el) return;
+        el.innerHTML = '<span style="color:#9ca3af; font-style:italic;">连接高维算子并发注入流...</span>';
+        let fullText = '';
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+                body: JSON.stringify({ model: model, messages: [{role: 'system', content: sysPrompt}, {role: 'user', content: usrPrompt}], temperature: 0.2, stream: true })
+            });
+            if (!res.ok) throw new Error(`API 拦截 (${res.status})`);
+            
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            el.innerHTML = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                for (const line of lines) {
+                    if (line === 'data: [DONE]') return;
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            const delta = data.choices[0].delta.content || '';
+                            fullText += delta;
+                            el.innerHTML = BIZ.formatAIText(fullText);
+                            el.scrollTop = el.scrollHeight;
+                        } catch(e){}
+                    }
+                }
+            }
+        } catch(e) {
+            el.innerHTML = `<span style="color:#dc2626; font-weight:bold;">节点推演中断: ${e.message}</span>`;
+        }
+        
+        if (STATE.currentRun && STATE.currentRun.aiResults && STATE.currentRun.aiResults[aiSrcName]) {
+            STATE.currentRun.aiResults[aiSrcName].text = BIZ.formatAIText(fullText);
+        }
+    },
+
+    runAI: async () => {
+        if(!STATE.currentRun) return UI.toast('请先排盘', true);
+        const btn = document.getElementById('btn_ai'); 
+        btn.disabled = true;
+        btn.innerText = "高维全息并发推演中...";
+        
+        // 【核心修复】：点击AI推演直接新建记录并在卡片内展开
+        const id = STATE.activeRecordId || Date.now().toString();
+        STATE.activeRecordId = id;
+        await BIZ.saveRecord(true);
+
+        STATE.openAiBoxIds.add(id);
+        UI.renderHistoryList();
+
+        setTimeout(() => {
+            const cardEl = document.querySelector(`.history-card[data-id="${id}"]`);
+            if (cardEl) window.scrollTo({top: cardEl.offsetTop - 20, behavior: 'smooth'});
+        }, 100);
+
+        const currentMatter = STATE.currentRun.Meta.Matter || "";
+        const currentCatId = document.getElementById('in_cat').value; 
+        const currentKeTi = STATE.currentRun.Meta.KeTiRaw || [];
+        
+        let ragContext = "";
+        let dbPool = [];
+        let dbData = null;
+        try { if (typeof LIUREN_CASES_DB !== 'undefined') dbData = LIUREN_CASES_DB; } catch(e){}
+        if (!dbData && typeof window.LIUREN_CASES_DB !== 'undefined') dbData = window.LIUREN_CASES_DB;
+        if (dbData && dbData.history) dbPool = [...dbData.history];
+        else if (dbData && Array.isArray(dbData)) dbPool = [...dbData];
+        if (STATE.history && STATE.history.length > 0) {
+            dbPool = dbPool.concat(STATE.history.filter(h => String(h.id) !== String(STATE.activeRecordId)));
+        }
+
+        if (dbPool.length > 0) {
+            const getGrams = (str) => {
+                if (!str) return [];
+                let res = [];
+                for (let i = 0; i < str.length - 1; i++) res.push(str.substring(i, i+2));
+                return res;
+            };
+            const matterGrams = getGrams(currentMatter);
+
+            let scoredCases = dbPool.map(h => {
+                let score = 0;
+                if (h.catId === currentCatId && currentCatId !== 'default' && currentCatId !== 'c_other') score += 5;
+                if (h.matter && currentMatter) {
+                    if (h.matter.includes(currentMatter) || currentMatter.includes(h.matter)) score += 30; 
+                    else {
+                        let matchCount = 0;
+                        matterGrams.forEach(g => { if (h.matter.includes(g)) matchCount++; });
+                        score += matchCount * 3; 
+                    }
+                }
+                let hKeTiStr = h.meta?.KeTi || (h.data ? h.data : ""); 
+                currentKeTi.forEach(k => { if (k !== '常规局' && (hKeTiStr.includes(k) || (h.review && h.review.includes(k)))) score += 20; });
+                
+                let resStr = h.actualRes?.result || h.res || '';
+                let isLoss = resStr.includes('失误') || resStr === 'loss';
+                if (isLoss && h.review) score += 25;
+
+                return { case: h, score: score, isLoss: isLoss };
+            }).filter(item => item.score >= 10).sort((a,b) => b.score - a.score).slice(0, 3);
+
+            if (scoredCases.length > 0) {
+                ragContext = `\n\n<rag_cases>\n【🚨 大数据案例库 RAG 检索结果】\n`;
+                scoredCases.forEach((item, idx) => {
+                    let c = item.case;
+                    let resStr = c.actualRes?.result || c.res || '未记录';
+                    let cText = `[高优匹配案例 ${idx + 1} | 相似度得分:${item.score}] 问事：${c.matter}\n-> 历史实战结果反馈：【${resStr}】 ${c.actualRes?.dir ? '(走向:'+c.actualRes.dir+')' : ''}\n`;
+                    
+                    if (item.isLoss && c.review) {
+                        cText += `<fatal_correction>\n【最高统帅指令：历史血泪教训！】\n历史类似断案曾发生严重失误！架构师强制覆写真理复盘笔记："${c.review}"\n⚠️ 你必须放弃常规五行推论，绝对服从该复盘笔记的定论！\n</fatal_correction>\n`;
+                    } else if (c.review) {
+                        cText += `-> 架构师复盘真理："${c.review}"\n`;
+                    }
+                    ragContext += cText;
+                });
+                ragContext += `\n</rag_cases>\n`;
+            } else {
+                 ragContext = `\n\n<rag_cases>\n【ℹ️ RAG 检索提示】：未匹配到高相似度相似案例，请完全依托本局天地盘五行生克推演。\n</rag_cases>\n`;
+            }
+        }
+
+        const domainType = getDomainType(currentCatId, currentMatter);
+        let intentKey = "通用";
+        if (domainType === 'stock') intentKey = "金融股市";
+        else if (['basket', 'soccer', 'esport'].includes(domainType)) intentKey = "体育竞技";
+        else if (currentCatId === 'c_travel') intentKey = "出行访谒";
+        else if (currentCatId === 'c_career') intentKey = "组织重组与职场内耗";
+        else if (currentCatId === 'c_lawsuit') intentKey = "黑天鹅危机与风控防御";
+
+        let domainConstraints = "";
+        if (intentKey === "金融股市") {
+            domainConstraints = `【语境隔离死命令】：你必须使用资金博弈、筹码、主力控盘、支撑压力等现代股市术语进行解析；强制在 <结论> 中明确预测量化指标（分时轨迹、最高点、最低点、收盘振幅）。`;
+        } else if (intentKey === "体育竞技") {
+            domainConstraints = `【语境隔离死命令】：你必须使用体能消耗、战术运转、球权压制、防守轮转等现代体育术语解析（绝对严禁出现任何股市、筹码等金融黑话）；强制在 <结论> 中明确预测胜负方向及极值分差。`;
+        } else {
+            domainConstraints = `【语境隔离死命令】：你必须使用大白话解释具体动静、阻碍来源与应期时间节点。严禁在日常事务中生搬硬套股市或体育专业术语！`;
+        }
+
+        const activeSysPrompt = `你现在是我本地部署的“大六壬全息量化推演系统”的首席架构专家与易学宗师。
+核心任务：将底层干支生克精准映射为现代【${intentKey}】场景结果。
+${domainConstraints}
+
+【全局强制输出 XML 结构】 (严禁破坏此标签架构)
+<结论>
+(一语中的给出最终定论。字数控制在150字以内。明确方向及极值预期)
+</结论>
+<推演过程>
+【一、 盘面微观解构】
+(解析主客定基、五行动静、空亡与六亲神煞的作用链)
+【二、 课体与法则映射】
+(重点解读 <Physics_Engine_Hits> 中物理法则嗅探器触发的核心底层逻辑，阐明其在现实中的威力)
+【三、 历史复盘对齐】
+(简述 RAG 判例指引，若触发了 <fatal_correction> 必须声明你放弃了哪些常规思考并完全服从历史教训)
+</推演过程>`;
+
+        let userPrompt = `公历：${STATE.currentRun.Meta.Time}\n干支：${STATE.currentRun.Meta.BaZi} | 月将：${STATE.currentRun.Meta.YueJiang}将 | 空亡：${STATE.currentRun.Meta.KongWang}\n问事：${currentMatter}\n\n`;
+
+        userPrompt += `【三传链条】\n`;
+        STATE.currentRun.SanChuan.forEach(s => { userPrompt += `${s.Pos}：${s.Zhi} (六亲：${s.Qin} 乘<${s.Jiang}> ${s.IsKW?'空亡':'充实'})\n`; });
+        userPrompt += `\n【四课结构】\n`;
+        STATE.currentRun.SiKe.forEach(k => { userPrompt += `第${k.Index+1}课：上神 ${k.Top}(${k.TopJiang})${k.IsTopKW?'[空]':''} / 下神 ${k.Bottom}\n`; });
+
+        const engineHits = BIZ.sniffV6Rules(
+            { 三传: { 初传: STATE.currentRun.SanChuan[0].Zhi, 中传: STATE.currentRun.SanChuan[1].Zhi, 末传: STATE.currentRun.SanChuan[2].Zhi }, 九宗门路由变量: STATE.currentRun.CoreLogic },
+            STATE.currentRun.Context.ssCtx,
+            STATE.currentRun.Context.gan
+        );
+        if (engineHits) {
+            userPrompt += `\n${engineHits}\n`;
+        }
+
+        userPrompt += ragContext;
+        STATE.currentRun.AIPrompt = userPrompt;
+
+        try {
+            await Promise.allSettled([
+                BIZ.fetchStream('https://api.deepseek.com/chat/completions', HARDCODED_KEYS['DeepSeek'], 'deepseek-chat', activeSysPrompt, userPrompt, `card_stream_deepseek_${id}`, 'DeepSeek'),
+                BIZ.fetchStream('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', HARDCODED_KEYS['Qwen'], 'qwen-max', activeSysPrompt, userPrompt, `card_stream_qwen_${id}`, 'Qwen'),
+                BIZ.fetchStream('https://open.bigmodel.cn/api/paas/v4/chat/completions', HARDCODED_KEYS['GLM'], 'glm-4-flash', activeSysPrompt, userPrompt, `card_stream_glm_${id}`, 'GLM')
+             ]);
+            await BIZ.saveRecord(true);
+            UI.toast(`多维全息阵列并发完毕`);
+        } catch(e) { 
+            UI.toast('核心通讯异常', true);
+        } finally { 
+            btn.disabled = false;
+            btn.innerText = "🤖 智能全息断局"; 
+        }
+    },
+
+    saveRecord: async (silent = false) => {
+        if(!STATE.currentRun) return;
+        const id = STATE.activeRecordId || Date.now().toString();
+        const cat = document.getElementById('in_cat').value || 'default';
+        let currentRev = '';
+        if (STATE.activeRecordId) {
+            const existing = STATE.history.find(x => String(x.id) === String(STATE.activeRecordId));
+            if (existing) currentRev = existing.review || '';
+        }
+        
+        const currentDataStr = JSON.stringify(STATE.currentRun);
+        const rec = { 
+            id: id, catId: cat, time: STATE.currentRun.Meta.Time, matter: STATE.currentRun.Meta.Matter, bazi: STATE.currentRun.Meta.BaZi, review: currentRev, 
+            aiResults: STATE.currentRun.aiResults,
+            actualRes: STATE.currentRun.actualRes || { dir: '', diff: '', result: 'pending' },
+            uiSubTab: STATE.currentRun.uiSubTab || 'actual',
+            data: currentDataStr 
+        };
+        const idx = STATE.history.findIndex(x => String(x.id) === String(id));
+        if(idx > -1) {
+            const prevActual = STATE.history[idx].actualRes;
+            const prevTab = STATE.history[idx].uiSubTab;
+            Object.assign(STATE.history[idx], rec);
+            if (prevActual) STATE.history[idx].actualRes = prevActual;
+            if (prevTab) STATE.history[idx].uiSubTab = prevTab;
+        } else {
+            STATE.history.unshift(rec);
+        }
+        
+        await BIZ.persistHistory();
+        STATE.activeRecordId = id; 
+        STATE.filterCat = cat;
+        UI.renderHistoryTabs(); 
+        if (typeof UI.renderHistoryList === 'function') UI.renderHistoryList();
+        if(silent !== true) UI.toast('已完整记录入库 IndexedDB');
+    },
+
+    updateRecordField: async (id, field, val, targetSrc, silentUI = false) => {
+        const idx = STATE.history.findIndex(x => String(x.id) === String(id));
+        if(idx > -1) { 
+            const rec = STATE.history[idx];
+            if (field === 'catId') rec.catId = val; 
+            else if (field === 'review') rec.review = val;
+            else if (field === 'uiSubTab') rec.uiSubTab = val;
+            else if (['dir', 'diff', 'result', 'traj', 'high', 'low', 'amp'].includes(field)) {
+                const src = targetSrc || rec.uiSubTab || 'actual';
+                if (src === 'actual') {
+                    if (!rec.actualRes) rec.actualRes = { dir: '', diff: '', result: 'pending' };
+                    rec.actualRes[field] = val;
+                } else {
+                    if (!rec.aiResults[src]) rec.aiResults[src] = { result: 'pending', dir: '', diff: '', text: '' };
+                    rec.aiResults[src][field] = val;
+                }
+            }
+            await BIZ.persistHistory();
+            if (!silentUI) if (typeof UI.updateStats === 'function') UI.updateStats();
+        }
+    },
+    
+    deleteRecord: async (id) => {
+        STATE.history = STATE.history.filter(x => String(x.id) !== String(id));
+        await IDB.delete(id); 
+        await BIZ.persistHistory(); 
+        if(String(STATE.activeRecordId) === String(id)) UI.resetState();
+        if (typeof UI.renderHistoryList === 'function') UI.renderHistoryList(); 
+        UI.toast('区块物理删除');
+    },
+    changeCategory: async (newCatId) => {
+        if(!STATE.activeRecordId) return;
+        const idx = STATE.history.findIndex(x => String(x.id) === String(STATE.activeRecordId)); 
+        if(idx === -1) return;
+        STATE.history[idx].catId = newCatId; 
+        await BIZ.persistHistory();
+        if (typeof UI.renderHistoryList === 'function') UI.renderHistoryList(); 
+        UI.toast('域重新划归');
+    },
+    persistHistory: async () => { for(let r of STATE.history) { await IDB.put(r); } },
+    loadRecord: (id) => {
+        const rec = STATE.history.find(x => String(x.id) === String(id));
+        if(!rec) return;
+        
+        UI.resetState(); 
+        STATE.activeRecordId = id; 
+        
+        try {
+            STATE.currentRun = JSON.parse(rec.data);
+            if (!STATE.currentRun.aiResults) STATE.currentRun.aiResults = rec.aiResults || { 'LocalAI': { result: 'pending', dir: '', diff: '', text: '' }, 'DeepSeek': { result: 'pending', dir: '', diff: '', text: '' }, 'Gemini': { result: 'pending', dir: '', diff: '', text: '' }, 'Qwen': { result: 'pending', dir: '', diff: '', text: '' }, 'GLM': { result: 'pending', dir: '', diff: '', text: '' } };
+            STATE.currentRun.actualRes = rec.actualRes || { dir: '', diff: '', result: 'pending' };
+            STATE.currentRun.uiSubTab = rec.uiSubTab || 'actual';
+        } catch(e) { return UI.toast('快照还原失败', true); }
+        
+        document.getElementById('in_matter').value = STATE.currentRun.Meta.Matter; 
+        document.getElementById('in_cat').value = rec.catId;
+        
+        if (rec.time) {
+            document.getElementById('in_time').value = rec.time.replace(' ', 'T');
+        }
+        
+        UI.renderBoard(STATE.currentRun);
+        document.getElementById('ui-recat-box').classList.remove('hidden'); 
+        document.getElementById('reCatSelect').value = rec.catId;
+        
+        window.scrollTo({top: 0, behavior: 'smooth'});
+        UI.toast('快照加载完毕 (排盘信息与时间已同步)');
+    }
+};
+
+const EVENTS = {
+    init: () => {
+        document.getElementById('btn_now_time').addEventListener('click', () => {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('in_time').value = now.toISOString().slice(0,16);
+        });
+
+        document.getElementById('btn_calc').addEventListener('click', BIZ.calcPan);
+        document.getElementById('btn_ai').addEventListener('click', BIZ.runAI);
+        document.getElementById('btn_save').addEventListener('click', () => BIZ.saveRecord());
+        document.getElementById('reCatSelect').addEventListener('change', (e) => BIZ.changeCategory(e.target.value));
+        
+        document.getElementById('in_cat').addEventListener('change', (e) => {
+            if (typeof UI.renderBigDataRadar === 'function') UI.renderBigDataRadar(e.target.value, document.getElementById('in_matter').value);
+        });
+        document.getElementById('in_matter').addEventListener('input', (e) => {
+            if (typeof UI.renderBigDataRadar === 'function' && document.getElementById('view_board').classList.contains('hidden') === false) UI.renderBigDataRadar(document.getElementById('in_cat').value, e.target.value);
+        });
+        
+        document.getElementById('btn_copy').addEventListener('click', () => {
+            if(!STATE.currentRun || !STATE.currentRun.Meta) return UI.toast("无运行实例", true);
+            const run = STATE.currentRun;
+            
+            // 【溯源重算补齐】：对防 404 前存下的旧记录进行神煞动态修复
+            const fixSS = (zhi, existing) => {
+                if (existing && existing.length > 0) return existing;
+                if (!run.Context || !run.Context.ssCtx) return [];
+                return SHENSHA.run(zhi, run.Context.ssCtx);
+            };
+            
+            const cleanJson = {
+                Meta: {
+                    Matter: document.getElementById('in_matter').value || run.Meta.Matter || "未命名测局",
+                    Time: run.Meta.Time,
+                    BaZi: run.Meta.BaZi,
+                    YueJiang: run.Meta.YueJiang,
+                    KongWangArr: run.Meta.KongWangArr,
+                    KongWang: run.Meta.KongWang,
+                    Gender: run.Meta.Gender,
+                    NianMing: run.Meta.NianMing,
+                    XingNian: run.Meta.XingNian,
+                    KeTi: run.Meta.KeTi,
+                    JuShu: run.Meta.JuShu
+                },
+                SanChuan: run.SanChuan.map(s => {
+                    let obj = { Pos: s.Pos, Zhi: s.Zhi, Qin: s.Qin, Jiang: s.Jiang };
+                    if (s.Dun) obj.Dun = s.Dun;
+                    if (s.IsKW) obj.IsKW = s.IsKW;
+                    obj.ShenSha = fixSS(s.Zhi, s.ShenSha).slice(0, 3);
+                    return obj;
+                }),
+                SiKe: run.SiKe.map(k => {
+                    let obj = { Index: k.Index, Top: k.Top, Bottom: k.Bottom, isGan: k.isGan, TopJiang: k.TopJiang };
+                    if (k.BotJiang) obj.BotJiang = k.BotJiang;
+                    if (k.TopDun) obj.TopDun = k.TopDun;
+                    if (k.BotJiGong) obj.BotJiGong = k.BotJiGong;
+                    if (k.BotDun) obj.BotDun = k.BotDun;
+                    if (k.IsTopKW) obj.IsTopKW = k.IsTopKW;
+                    if (k.IsBotKW) obj.IsBotKW = k.IsBotKW;
+                    obj.TopShenSha = fixSS(k.Top, k.TopShenSha).slice(0, 3);
+                    obj.BotShenSha = fixSS(k.Bottom, k.BotShenSha).slice(0, 3);
+                    return obj;
+                }),
+                TianDiPan: run.TianDiPan.map(t => {
+                    let obj = { DiPan: t.DiPan, TianPan: t.TianPan, TianJiang: t.TianJiang };
+                    if (t.DunGan) obj.DunGan = t.DunGan;
+                    if (t.IsKW) obj.IsKW = t.IsKW;
+                    return obj;
+                })
+            };
+
+            navigator.clipboard.writeText(JSON.stringify(cleanJson, null, 2))
+                .then(() => UI.toast('排盘 JSON 复制成功'))
+                .catch(() => UI.toast('剪贴板操作失败', true));
+        });
+
+        document.getElementById('btn_add_cat').addEventListener('click', () => {
+            const name = document.getElementById('in_new_cat').value.trim(); 
+            if(!name) return;
+            const id = 'c_' + Date.now(); 
+            STATE.categories.push({id, name}); localStorage.setItem('liuren_categories', JSON.stringify(STATE.categories));
+            document.getElementById('in_new_cat').value = ''; 
+            UI.renderCatSelects(); UI.renderHistoryTabs(); UI.toast('分类域建立成功');
+        });
+
+        document.getElementById('history_list').addEventListener('click', (e) => {
+            if (e.target.closest('select, textarea')) return;
+            const capBtn = e.target.closest('.capsule-btn');
+            if (capBtn) {
+                e.stopPropagation(); e.preventDefault();
+                const id = capBtn.dataset.id, role = capBtn.dataset.role, val = capBtn.dataset.val;
+                const rec = STATE.history.find(x => String(x.id) === String(id));
+                if (!rec) return;
+
+                if (role === 'switch') BIZ.updateRecordField(id, 'uiSubTab', val, null, true);
+                else {
+                    let curTab = rec.uiSubTab || 'LocalAI';
+                    const domain = getDomainType(rec.catId, rec.matter);
+                    if (!['basket', 'soccer', 'esport', 'stock'].includes(domain) && curTab === 'actual') curTab = 'LocalAI';
+                    
+                    const isActive = ['active-dir', 'active-loss', 'active-draw', 'active-full', 'active-win', 'active-partial'].some(cls => capBtn.classList.contains(cls));
+                    BIZ.updateRecordField(id, role, isActive ? (role === 'result' ? 'pending' : '') : val, curTab, true);
+                }
+
+                const card = document.querySelector(`.history-card[data-id="${id}"]`);
+                if(card) {
+                    const matrixContainer = card.querySelector('.matrix-container');
+                    if(matrixContainer) {
+                        let curTab = rec.uiSubTab || 'LocalAI';
+                        matrixContainer.innerHTML = UI.generateMatrixHTML(rec, curTab);
+                    }
+                    card.querySelectorAll('.capsule-btn[data-role="switch"]').forEach(b => {
+                        b.classList.remove('active-match');
+                        if(b.dataset.val === rec.uiSubTab) b.classList.add('active-match');
+                    });
+                }
+                UI.updateStats(); return;
+            }
+
+            const viewAiBtn = e.target.closest('.action-view-ai');
+            if(viewAiBtn) {
+                e.stopPropagation(); e.preventDefault();
+                const id = viewAiBtn.dataset.id;
+                const aiBox = document.getElementById(`history-ai-box-${id}`);
+                if (aiBox) {
+                    if (aiBox.classList.contains('hidden')) {
+                        aiBox.classList.remove('hidden');
+                        viewAiBtn.style.background = '#e5e7eb';
+                        STATE.openAiBoxIds.add(id); // 更新状态防止重绘丢失
+                    } else {
+                        aiBox.classList.add('hidden');
+                        viewAiBtn.style.background = 'transparent';
+                        STATE.openAiBoxIds.delete(id);
+                    }
+                }
+                return;
+            }
+
+            const delBtn = e.target.closest('.btn-del');
+            if(delBtn) { e.stopPropagation(); e.preventDefault(); if(confirm('直接擦除物理区块记录？')) BIZ.deleteRecord(delBtn.closest('.history-card').dataset.id); return; }
+            
+            const toggleRevBtn = e.target.closest('.action-toggle-review');
+            if(toggleRevBtn) {
+                e.stopPropagation(); e.preventDefault();
+                const id = toggleRevBtn.dataset.id;
+                const box = document.getElementById(`review-box-${id}`);
+                if (box.classList.contains('hidden')) { box.classList.remove('hidden'); toggleRevBtn.style.background = '#e5e7eb'; STATE.openReviewIds.add(id); } 
+                else { box.classList.add('hidden'); toggleRevBtn.style.background = '#f3f4f6'; STATE.openReviewIds.delete(id); }
+                return;
+            }
+            
+            const saveRevBtn = e.target.closest('.action-save-review');
+            if(saveRevBtn) {
+                e.stopPropagation(); e.preventDefault();
+                BIZ.updateRecordField(saveRevBtn.dataset.id, 'review', document.getElementById(`review-text-${saveRevBtn.dataset.id}`).value, null, true);
+                UI.toast('复盘真理已锚定'); return;
+            }
+            
+            const card = e.target.closest('.history-card');
+            if(card) BIZ.loadRecord(card.dataset.id);
+        });
+
+        document.getElementById('history_list').addEventListener('change', (e) => {
+            const id = e.target.dataset.id; if(!id) return;
+            if(e.target.classList.contains('action-select-cat')) BIZ.updateRecordField(id, 'catId', e.target.value);
+        });
+        document.getElementById('history_tabs').addEventListener('click', (e) => {
+            if(e.target.tagName === 'BUTTON') {
+                STATE.filterCat = e.target.dataset.cat;
+                UI.renderHistoryTabs(); 
+                if (typeof UI.renderHistoryList === 'function') UI.renderHistoryList();
+            }
+        });
+    }
+};
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await IDB.init();
+    STATE.history = await IDB.getAll();
+    await migrateData();
+    UI.init();
+    EVENTS.init();
+});
+</script>
+<script src="./liuren_integration_v7.js"></script>
+</body>
+</html>
