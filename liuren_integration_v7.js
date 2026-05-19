@@ -422,6 +422,9 @@
     async function init() {
         console.log('[V7] 🚀 大六壬V7集成补丁启动...');
 
+        // 🔧 桥接 STATE：原版用 const STATE，不在 window 上
+        if (typeof STATE !== 'undefined' && !window.STATE) window.STATE = STATE;
+
         // 1. 等待页面准备就绪
         await waitForInit();
 
