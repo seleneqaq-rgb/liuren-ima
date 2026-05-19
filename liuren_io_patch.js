@@ -97,13 +97,14 @@
                         throw new Error('文件中没有找到有效记录');
                     }
 
-                    // 补全缺少必要字段的记录
+                    // 去重 + 直接写入 STATE.history
                     let imported = 0;
+                    const existingIds = new Set((window.STATE.history || []).map(r => r.id));
                     for (const rec of records) {
-                        if (!rec.id && !rec.ts) rec.id = Date.now() + '_' + Math.random().toString(36).substr(2, 8);
-                        if (!rec.ts) rec.ts = Date.now();
-                        try { BIZ.addRecord(rec); imported++; }
-                        catch(er) { console.warn('[IO补丁] 跳过无法导入的记录', rec, er); }
+                        if (!rec.id) rec.id = Date.now() + '_' + Math.random().toString(36).substr(2, 8);
+                        if (existingIds.has(rec.id)) continue; // 已存在，跳过
+                        try { window.STATE.history.push(rec); existingIds.add(rec.id); imported++; }
+                        catch(er) { console.warn('[IO补丁] 跳过无效记录', rec, er); }
                     }
 
                     safeToast(`✅ 成功导入 ${imported} 条记录`);
@@ -251,10 +252,11 @@
             
             const records = data.history || data.records || (Array.isArray(data) ? data : [data]);
             let imported = 0;
+            const existingIds = new Set((window.STATE.history || []).map(r => r.id));
             for (const rec of records) {
                 if (!rec.id) rec.id = Date.now() + '_' + Math.random().toString(36).substr(2, 8);
-                if (!rec.ts) rec.ts = Date.now();
-                try { BIZ.addRecord(rec); imported++; }
+                if (existingIds.has(rec.id)) continue;
+                try { window.STATE.history.push(rec); existingIds.add(rec.id); imported++; }
                 catch(e) { console.warn('[IO补丁] 跳过', rec, e); }
             }
 
