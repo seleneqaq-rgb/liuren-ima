@@ -1371,7 +1371,7 @@ const UI = {
                     <button class="action-toggle-review" style="font-size: 12px; padding: 6px 12px; background: ${isRevOpen ? '#e5e7eb' : '#f3f4f6'}; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; font-weight: bold; color: #4b5563;" data-id="${r.id}">📝 宽幅复盘笔记</button>
                 </div>
 
-                <div id="history-ai-box-${r.id}" class="hidden" style="display:none;"></div>>
+                <div id="history-ai-box-${r.id}" class="hidden" style="display:none;"></div>
 
                 <div id="review-box-${r.id}" class="${isRevOpen ? '' : 'hidden'}" style="margin-top: 12px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; transition: all 0.2s;">
                     <textarea id="review-text-${r.id}" style="width: 100%; font-size: 13px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; background: white; resize: vertical; min-height: 80px;" rows="4" placeholder="在此输入高维深度复盘笔记。注：系统永久保留最高真理覆写权。若判定失误且存在复盘，该结论将绝对凌驾于常规推理逻辑之上...">${r.review || ''}</textarea>
