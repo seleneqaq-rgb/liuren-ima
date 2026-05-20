@@ -100,56 +100,72 @@
         }, 100);
     }
 
-    // ===== 展开/折叠AI详情 =====
+    // ===== 展开/折叠AI详情（直接用原版已渲染的 #history-ai-box）=====
     function toggleAIDetail(btn, id) {
         if (!btn) return;
         var card = btn.closest('.history-card');
         if (!card) return;
 
         var st = getST();
-        var existing = card.querySelector('.v7-ai-detail-box');
-
-        if (existing) {
-            // 折叠
-            existing.remove();
-            btn.textContent = '▼ 展开详情';
-            btn.style.background = '#f3f4f6';
-            btn.style.color = '#4b5563';
-            if (st && st.openAiBoxIds) st.openAiBoxIds.delete(String(id));
+        // 直接用原版渲染好的AI盒子，不要重建
+        var aiBox = document.getElementById('history-ai-box-' + id);
+        
+        if (!aiBox) {
+            // 原版盒子不存在（极少情况），从卡片中提取现有AI文字显示2x2精简版
+            var aiItems = [];
+            var engines = ['DeepSeek', 'Qwen', 'Gemini', 'GLM'];
+            engines.forEach(function(e) {
+                var el = document.getElementById('card_stream_' + e.toLowerCase() + '_' + id);
+                var txt = el ? el.innerText.trim() : '';
+                if (!txt) {
+                    // 尝试从 card 中搜索隐藏的 ai-panel-body
+                    var panel = card.querySelector('.ai-panel-body[id*="' + e.toLowerCase() + '"]');
+                    if (panel && panel.innerText.trim().length > 5) txt = panel.innerText.trim();
+                }
+                aiItems.push({ eng: e, text: txt || '(暂无推演)' });
+            });
+            
+            var existing = card.querySelector('.v7-ai-detail-box');
+            if (existing) {
+                existing.remove();
+                btn.textContent = '▼ 展开详情';
+                btn.style.background = '#f3f4f6'; btn.style.color = '#4b5563';
+                if (st && st.openAiBoxIds) st.openAiBoxIds.delete(String(id));
+                return;
+            }
+            
+            btn.textContent = '▲ 收起';
+            btn.style.background = '#8C2131'; btn.style.color = 'white';
+            if (st && st.openAiBoxIds) st.openAiBoxIds.add(String(id));
+            
+            var box = document.createElement('div');
+            box.className = 'v7-ai-detail-box';
+            box.style.cssText = 'margin:4px 0; padding:8px; background:#f9fafb; border-radius:6px; border:1px solid #e5e7eb;';
+            var h = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">';
+            aiItems.forEach(function(a) {
+                h += '<div style="background:white; border-radius:4px; padding:6px; border:1px solid #e5e7eb;">' +
+                    '<div style="font-size:11px;font-weight:600;color:#1f2937;margin-bottom:2px;">🤖 '+a.eng+'</div>' +
+                    '<div style="font-size:11px;color:#4b5563;max-height:180px;overflow-y:auto;white-space:pre-wrap;">'+a.text+'</div>' +
+                    '</div>';
+            });
+            h += '</div>';
+            box.innerHTML = h;
+            var anchor = card.querySelector('.v7-ai-brief-inline');
+            (anchor ? anchor.parentNode : card).insertBefore(box, anchor ? anchor.nextSibling : card.firstChild);
             return;
         }
 
-        // 展开
-        btn.textContent = '▲ 收起';
-        btn.style.background = '#8C2131';
-        btn.style.color = 'white';
-        if (st && st.openAiBoxIds) st.openAiBoxIds.add(String(id));
-
-        var rec = findRecord(id);
-        if (!rec) return;
-
-        var box = document.createElement('div');
-        box.className = 'v7-ai-detail-box';
-        box.style.cssText = 'margin:4px 0; padding:8px; background:#f9fafb; border-radius:6px; border:1px solid #e5e7eb;';
-
-        var engs = ['DeepSeek', 'Qwen', 'Gemini', 'GLM'];
-        var html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">';
-        engs.forEach(function(e) {
-            var t = (rec.aiResults && rec.aiResults[e] && rec.aiResults[e].text) || '(暂无推演)';
-            html += '<div style="background:white; border-radius:4px; padding:6px; border:1px solid #e5e7eb;">' +
-                '<div style="font-size:11px;font-weight:600;color:#1f2937;margin-bottom:2px;">🤖 '+e+'</div>' +
-                '<div style="font-size:11px;color:#4b5563;max-height:180px;overflow-y:auto;white-space:pre-wrap;">'+t+'</div>' +
-                '</div>';
-        });
-        html += '</div>';
-        box.innerHTML = html;
-
-        // 插入到AI简报后面
-        var briefDiv = card.querySelector('.v7-ai-brief-inline');
-        if (briefDiv) {
-            briefDiv.parentNode.insertBefore(box, briefDiv.nextSibling);
+        // 正常情况：切换原版AI盒子
+        if (aiBox.classList.contains('hidden')) {
+            aiBox.classList.remove('hidden');
+            btn.textContent = '▲ 收起';
+            btn.style.background = '#8C2131'; btn.style.color = 'white';
+            if (st && st.openAiBoxIds) st.openAiBoxIds.add(String(id));
         } else {
-            card.appendChild(box);
+            aiBox.classList.add('hidden');
+            btn.textContent = '▼ 展开详情';
+            btn.style.background = '#f3f4f6'; btn.style.color = '#4b5563';
+            if (st && st.openAiBoxIds) st.openAiBoxIds.delete(String(id));
         }
     }
 
